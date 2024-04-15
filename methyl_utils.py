@@ -501,8 +501,21 @@ def make_count_sparse_mtx_batch(indir,sample,batch):
     adata.obs.index = batch_bcs
     adata.write_h5ad(adata_notmeth,compression='gzip')
 
-def write_mtx(indir,sample,batch,window,context,state,csr):
-    csr_file  = f'{indir}/{sample}/matrix_b_{batch}_w_{window}_m{context}_{state}.mtx.gz'
+def write_mtx(indir, sample, batch, window, context, state, csr):
+    
+    window_mtx_dir = f"{indir}/{sample}/counts_w_{window}_m{context}"
+
+    if not os.path.exists(window_mtx_dir):
+        try:
+            os.makedirs(window_mtx_dir)
+            print(f"{window_mtx_dir} created")
+        except:
+            print(f"{window_mtx_dir} already created")
+    else:
+        print(f"{window_mtx_dir} already exists")
+        
+    csr_file  = f'{window_mtx_dir}/b_{batch}_{state}.mtx.gz'
+    
     with gzip.open(csr_file, "wb") as out:
         scipy.io.mmwrite(out, csr)
 
@@ -550,7 +563,17 @@ def make_count_sparse_mtx_batch_windows(indir, sample, batch, window, chr_idx_di
     agg_batch_json_file = f"{dir_split}/quad_agg_{batch}.json"
 
     #agg_batch_json_file = f"{dir_split}/quads_part_001_batch_{batch}.json"
-
+    
+    context = "CG"
+    
+    window_mtx_dir = f"{indir}/{sample}/counts_w_{window}_m{context}"
+        
+    csr_file  = f'{window_mtx_dir}/b_{batch}_score.mtx.gz'
+    
+    if os.path.isfile(csr_file):
+        print(csr_file,' exists, skip')
+        return
+    
     with open(agg_batch_json_file, "r") as json_file:
         data_sub = json.load(json_file)
 
@@ -565,15 +588,6 @@ def make_count_sparse_mtx_batch_windows(indir, sample, batch, window, chr_idx_di
     row_col_values_score = []
 
     all_mrg_dfs = []
-
-    context = "CG"
-
-    adata_score = f"{indir}/{sample}/adata_batch_{batch}_{window}_{context}_score.h5ad"
-    adata_meth = f"{indir}/{sample}/adata_batch_{batch}_{window}_{context}_meth.h5ad"
-    adata_notmeth = (
-        f"{indir}/{sample}/adata_batch_{batch}_{window}_{context}_notmeth.h5ad"
-    )
-    # adata_coverage = f'{indir}/{sample}/adata_batch_{batch}_500_CG_coverage.h5ad'
 
     batch_bcs = list(data_sub.keys())
 

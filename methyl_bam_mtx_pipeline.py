@@ -20,7 +20,6 @@ sample = args.sample
 window_size = args.window_size
 limit = args.limit
 
-
 ######################################################
 
 
@@ -55,7 +54,6 @@ pool.close()
 pool.join()
 """
 
-
 chr_idx_dict = methyl_utils.chrom_to_windows(methyl_utils.hg38_chroms, window_size)
 
 print('chr_idx_dict lenght = ',len(chr_idx_dict))
@@ -64,18 +62,7 @@ bcs = pd.read_csv(f'{indir}/{sample}/{sample}_whitelist.csv')
 sub_batch_N = int(np.sqrt(len(bcs)))+1
 args = [(indir, sample, str(j+1).zfill(3), window_size, chr_idx_dict) for j in range(sub_batch_N)]
 
-
 pool = Pool(int(cores))
-#results = pool.starmap(methyl_utils.make_count_sparse_mtx_batch, args)
 results = pool.starmap(methyl_utils.make_count_sparse_mtx_batch_windows, args)
 pool.close()
 pool.join()
-
-
-"""
-pool = Pool(int(cores))
-#results = pool.starmap(methyl_utils.make_count_sparse_mtx_batch, args)
-results = pool.starmap(methyl_utils.make_count_sparse_mtx_batch_windows, args[:1])
-pool.close()
-pool.join()
-"""
