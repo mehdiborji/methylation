@@ -7,6 +7,7 @@
 
 echo 'indir =' $1
 echo 'sample =' $2
+echo 'window =' $3
 
-python ~/methylation/methyl_bam_mtx_pipeline.py -c 1 -i $1 -s $2
+python ~/methylation/methyl_bam_mtx_pipeline.py -c 10 -i $1 -s $2 -w $3
 #--limit

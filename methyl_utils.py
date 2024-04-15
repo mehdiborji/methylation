@@ -504,7 +504,7 @@ def make_count_sparse_mtx_batch(indir,sample,batch):
 def write_mtx(indir,sample,batch,window,context,state,csr):
     csr_file  = f'{indir}/{sample}/matrix_b_{batch}_w_{window}_m{context}_{state}.mtx.gz'
     with gzip.open(csr_file, "wb") as out:
-        scipy.io.mmwrite(out, csr.eliminate_zeros())
+        scipy.io.mmwrite(out, csr)
 
 hg38_chroms = {
     "chr1": 248956422,
@@ -545,92 +545,112 @@ def chrom_to_windows(chrom_len_dict, window_size):
     return chr_idx_dict
 
 def make_count_sparse_mtx_batch_windows(indir, sample, batch, window, chr_idx_dict):
-    
-    dir_split = f'{indir}/{sample}/split'
+    dir_split = f"{indir}/{sample}/split"
 
-    agg_batch_json_file = f'{dir_split}/quad_agg_{batch}.json'
+    agg_batch_json_file = f"{dir_split}/quad_agg_{batch}.json"
 
-    agg_batch_json_file = f'{dir_split}/quads_part_001_batch_{batch}.json'
+    #agg_batch_json_file = f"{dir_split}/quads_part_001_batch_{batch}.json"
 
-    with open(agg_batch_json_file, 'r') as json_file:
+    with open(agg_batch_json_file, "r") as json_file:
         data_sub = json.load(json_file)
 
     rows_idx = []
     cols_idx = []
-    row_col_values_ratio = []
+
     row_col_values_meth = []
     row_col_values_notmeth = []
-    #row_col_values_coverage = []
+
+    rows_idx_score = []
+    cols_idx_score = []
+    row_col_values_score = []
 
     all_mrg_dfs = []
-    
-    context = 'CG'
-    
-    adata_ratio = f'{indir}/{sample}/adata_batch_{batch}_{window}_CG_score.h5ad'
-    adata_meth = f'{indir}/{sample}/adata_batch_{batch}_{window}_CG_meth.h5ad'
-    adata_notmeth = f'{indir}/{sample}/adata_batch_{batch}_{window}_CG_notmeth.h5ad'
-    #adata_coverage = f'{indir}/{sample}/adata_batch_{batch}_500_CG_coverage.h5ad'
 
-    batch_bcs = list(data_sub.keys())[:10]
+    context = "CG"
+
+    adata_score = f"{indir}/{sample}/adata_batch_{batch}_{window}_{context}_score.h5ad"
+    adata_meth = f"{indir}/{sample}/adata_batch_{batch}_{window}_{context}_meth.h5ad"
+    adata_notmeth = (
+        f"{indir}/{sample}/adata_batch_{batch}_{window}_{context}_notmeth.h5ad"
+    )
+    # adata_coverage = f'{indir}/{sample}/adata_batch_{batch}_500_CG_coverage.h5ad'
+
+    batch_bcs = list(data_sub.keys())
 
     for idx, bc in enumerate(tqdm(batch_bcs)):
-        
-        if len(data_sub[bc])==0:
+        if len(data_sub[bc]) == 0:
             continue
-            
+
         # convert ['chr_100', 'Z'] to ['chr_100_Z'] and count dedup
         # maybe save this stats later
         # one call also do this in aggregate_quad_parts
 
         dedup = {}
-        for b in data_sub[bc]: seq_counter(dedup,'_'.join(b))
-        
+
+        for b in data_sub[bc]:
+            seq_counter(dedup, "_".join(b))
+
         # convert back to ['chr', '100', 'Z'] format
-        
-        triplets = [d.split('_') for d in dedup.keys()]
+
+        triplets = [d.split("_") for d in dedup.keys()]
         triplets = pd.DataFrame(triplets)
 
-        triplets[1] = triplets[1].astype('int')
-        triplets[3] = triplets[1] // window # bin base position into 50k
-        
+        triplets[1] = triplets[1].astype("int")
+        triplets[3] = (
+            triplets[1] // window
+        )  # bin base position into size equal to window
+
         # count Z and z per bin
-        
-        Z_cnt = triplets[triplets[2]=='Z'].groupby([0,3]).size() 
-        z_cnt = triplets[triplets[2]=='z'].groupby([0,3]).size()
-        Z_cnt.name = 'Z_cnt'
-        z_cnt.name = 'z_cnt'
 
-        mrg = pd.merge(Z_cnt, z_cnt, how='outer', left_index=True, right_index=True)
+        Z_cnt = triplets[triplets[2] == "Z"].groupby([0, 3]).size()
+        z_cnt = triplets[triplets[2] == "z"].groupby([0, 3]).size()
+        Z_cnt.name = "Z_cnt"
+        z_cnt.name = "z_cnt"
+
+        mrg = pd.merge(Z_cnt, z_cnt, how="outer", left_index=True, right_index=True)
         mrg = mrg.fillna(0)
-        sums = mrg.sum()
-        #cell_ratio = sums.loc['Z_cnt']/sums.sum()
-        
-        # ratio is window level ratio Z_w/(z_w+Z_w) divided by genome ratio Z_g/(z_g+Z_g)
-        
-        mrg['ratio'] = mrg.Z_cnt*sums.sum()/(mrg.Z_cnt + mrg.z_cnt)/sums.loc['Z_cnt']-1
+        cell_mC = mrg.sum()
 
+        mrg["cov"] = mrg.sum(axis=1)
+
+        cell_mC_ratio = cell_mC.loc["Z_cnt"] / (
+            cell_mC.loc["Z_cnt"] + cell_mC.loc["z_cnt"]
+        )
+        # mrg['meth'] = mrg.Z_cnt / mrg['cov']
+        # mrg['ratio'] = mrg['meth'] / cell_mC_ratio
+        mrg["diff"] = mrg.Z_cnt / mrg["cov"] - cell_mC_ratio
+
+        diff_pos = mrg[(mrg["diff"] > 0) & (mrg["cov"] > 1)]["diff"] / (
+            1 - cell_mC_ratio
+        )
+        diff_neg = mrg[(mrg["diff"] < 0) & (mrg["cov"] > 1)]["diff"] / cell_mC_ratio
+
+        row_vals = (np.ones(len(mrg), dtype=int) * idx).tolist()
         col_vals = [chr_idx_dict[key] for key in mrg.index]
 
-        rows_idx.extend((np.ones(len(mrg),dtype=int)*idx).tolist()) # cells
-        #cols_idx.extend(chr_idx_dict[mrg.index]['index'].tolist()) # genes
-        cols_idx.extend(col_vals) # genes
+        rows_idx.extend(row_vals)  # cells
+        cols_idx.extend(col_vals)  # genes
 
-        row_col_values_ratio.extend(mrg['ratio'].tolist())
-        row_col_values_meth.extend(mrg['Z_cnt'].tolist())
-        row_col_values_notmeth.extend(mrg['z_cnt'].tolist())
-        #row_col_values_notmeth.extend(mrg['z_cnt'].tolist())
-    shape = (len(batch_bcs), len(windows))
-    
-    csr = csr_matrix((row_col_values_ratio, 
-                            (rows_idx, cols_idx)), shape=shape)
-    write_mtx(indir,sample,batch,window,context,'ratio',csr)
-    
-    csr = csr_matrix((row_col_values_meth, 
-                           (rows_idx, cols_idx)), shape=shape)
-    write_mtx(indir,sample,batch,window,context,'meth',csr)
-    
-    csr = csr_matrix((row_col_values_notmeth, 
-                              (rows_idx, cols_idx)), shape=shape)
-    write_mtx(indir,sample,batch,window,context,'notmeth',csr)
-    
-    
+        row_col_values_meth.extend(mrg["Z_cnt"].tolist())
+        row_col_values_notmeth.extend(mrg["z_cnt"].tolist())
+
+        for diff in [diff_pos, diff_neg]:
+            row_vals = (np.ones(len(diff), dtype=int) * idx).tolist()
+            col_vals = [chr_idx_dict[key] for key in diff.index]
+            rows_idx_score.extend(row_vals)  # cells
+            cols_idx_score.extend(col_vals)  # genes
+            row_col_values_score.extend(diff.tolist())
+
+    shape = (len(batch_bcs), len(chr_idx_dict))
+
+    csr = csr_matrix((row_col_values_meth, (rows_idx, cols_idx)), shape=shape, dtype='float32')
+    csr.eliminate_zeros()
+    write_mtx(indir, sample, batch, window, context, "meth", csr)
+
+    csr = csr_matrix((row_col_values_notmeth, (rows_idx, cols_idx)), shape=shape, dtype='float32')
+    csr.eliminate_zeros()
+    write_mtx(indir, sample, batch, window, context, "notmeth", csr)
+
+    csr = csr_matrix(
+        (row_col_values_score, (rows_idx_score, cols_idx_score)), shape=shape, dtype='float32')
+    write_mtx(indir, sample, batch, window, context, "score", csr)

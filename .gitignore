@@ -13,6 +13,7 @@ notebooks/
 *.pdf
 *.out
 *.csv
+*gitkey*
  
 # C extensions
 *.so
