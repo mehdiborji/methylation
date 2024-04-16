@@ -32,7 +32,6 @@ pool.join()
 """
 methyl_utils.aggregate_bc_dicts(indir,sample)
 
-
 pool = Pool(int(cores))
 results = pool.starmap(methyl_utils.extract_bc_from_bam, args)
 pool.close()
