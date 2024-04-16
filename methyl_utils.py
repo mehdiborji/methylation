@@ -19,9 +19,7 @@ import re
 from collections import defaultdict
 from multiprocessing import Pool
 
-filter_poly = True
-
-N_read_extract = 100000
+N_read_extract = 10000
 
 print(N_read_extract)
 
@@ -194,25 +192,25 @@ def extract_clean_fastq(indir,sample,part,limit):
                 quality_calc(seq3,quals3,r3_base_dict,r3_qual_dict)
                 
                         
-            """
-            if len1 >= 46 and len3 >= 45:
-                
-                bc = seq2[8:24]
-                
-                match, dist = edit_match(seq2[:8], 'CAGACGCG', 2)
+                """
+                if len1 >= 46 and len3 >= 45:
 
-                if match:
-                    
-                    R1_clean.write(f'@{r1.name}_1_{bc}\n')
-                    R1_clean.write(f'{r1.sequence[9:48]}\n')
-                    R1_clean.write('+\n')
-                    R1_clean.write(f'{r1.quality[9:48]}\n')
+                    bc = seq2[8:24]
 
-                    R3_clean.write(f'@{r3.name}_2_{bc}\n')
-                    R3_clean.write(f'{r3.sequence[10:]}\n')
-                    R3_clean.write('+\n')
-                    R3_clean.write(f'{r3.quality[10:]}\n')
-            """
+                    match, dist = edit_match(seq2[:8], 'CAGACGCG', 2)
+
+                    if match:
+                """
+            R1_clean.write(f'@{r1.name}_1_{bc}\n')
+            R1_clean.write(f'{r1.sequence[12:]}\n')
+            R1_clean.write('+\n')
+            R1_clean.write(f'{r1.quality[12:]}\n')
+
+            R3_clean.write(f'@{r3.name}_2_{bc}\n')
+            R3_clean.write(f'{r3.sequence[12:90]}\n')
+            R3_clean.write('+\n')
+            R3_clean.write(f'{r3.quality[12:90]}\n')
+            
             if i>N_read_extract and limit: break
     
     r1_qual_df = quality_df(r1_qual_dict)
