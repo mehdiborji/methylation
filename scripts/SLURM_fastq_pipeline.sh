@@ -8,5 +8,4 @@
 echo 'indir =' $1
 echo 'sample =' $2
 
-python ~/methylation/methyl_fastq_pipeline.py -c 20 -i $1 -s $2
-#--limit
+python ~/methylation/methyl_fastq_pipeline.py -c 20 -i $1 -s $2 --limit

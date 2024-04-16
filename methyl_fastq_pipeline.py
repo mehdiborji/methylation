@@ -24,12 +24,12 @@ methyl_utils.split_fastq_by_lines(indir, sample, 20e6)
 
 parts = methyl_utils.find_sub_fastq_parts(indir,sample)
 args = [(indir, sample, part, limit) for part in parts]
-"""
+
 pool = Pool(int(cores))
 results = pool.starmap(methyl_utils.extract_clean_fastq, args)
 pool.close()
 pool.join()
-
+"""
 methyl_utils.aggregate_bc_dicts(indir,sample)
 
 

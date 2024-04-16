@@ -142,10 +142,6 @@ def extract_clean_fastq(indir,sample,part,limit):
         return
 
     bcs_dict = {}
-
-    if os.path.isfile(R1_fastq_clean):
-        print(R1_fastq_clean,' exists, skip')
-        return
     
     R1_clean = open(R1_fastq_clean, 'w')
     R3_clean = open(R3_fastq_clean, 'w')
