@@ -124,29 +124,26 @@ def quality_df(quals_dict):
     quals_df['freq'] = quals_df.tot_count / quals_df.position_cnt * 100
     return quals_df
 
-def extract_clean_fastq(indir,sample,part,limit):
-    
+def extract_clean_fastq(indir, sample, part, limit):
     i = 0
-    
-    R1_fastq = f'{indir}/{sample}/split/{sample}_R1.part_{part}.fastq'
-    R2_fastq = R1_fastq.replace('_R1.', '_R2.')
-    R3_fastq = R1_fastq.replace('_R1.', '_R3.')
-    
-    R1_fastq_clean = f'{indir}/{sample}/split/{sample}_R1.part_{part}_clean.fastq'
-    R3_fastq_clean = R1_fastq_clean.replace('_R1.', '_R3.')
-    
-    bcs_json = f'{indir}/{sample}/split/{sample}.part_{part}_bcs.json'
-    
+
+    R1_fastq = f"{indir}/{sample}/split/{sample}_R1.part_{part}.fastq"
+    R2_fastq = R1_fastq.replace("_R1.", "_R2.")
+    R3_fastq = R1_fastq.replace("_R1.", "_R3.")
+
+    R1_fastq_clean = f"{indir}/{sample}/split/{sample}_R1.part_{part}_clean.fastq"
+    R3_fastq_clean = R1_fastq_clean.replace("_R1.", "_R3.")
+
+    bcs_json = f"{indir}/{sample}/split/{sample}.part_{part}_bcs.json"
+
     if os.path.isfile(bcs_json):
-        print(bcs_json,' exists, skip')
+        print(bcs_json, " exists, skip")
         return
 
     bcs_dict = {}
-    
-    R1_clean = open(R1_fastq_clean, 'w')
-    R3_clean = open(R3_fastq_clean, 'w')
-    
-    bc_seq_dict = {}
+
+    R1_clean = open(R1_fastq_clean, "w")
+    R3_clean = open(R3_fastq_clean, "w")
 
     r1_qual_dict = {}
     r2_qual_dict = {}
@@ -154,81 +151,77 @@ def extract_clean_fastq(indir,sample,part,limit):
     r1_base_dict = {}
     r2_base_dict = {}
     r3_base_dict = {}
-    
-    store_bases = False
-    store_quals = True
+
+    #store_bases = False
+    #store_quals = True
     do_qc = True
 
-
-    with pysam.FastxFile(R1_fastq) as R1, pysam.FastxFile(R2_fastq) as R2, pysam.FastxFile(R3_fastq) as R3:
+    with pysam.FastxFile(R1_fastq) as R1, pysam.FastxFile(
+        R2_fastq
+    ) as R2, pysam.FastxFile(R3_fastq) as R3:
         for r1, r2, r3 in tqdm(zip(R1, R2, R3)):
-            
             i += 1
-            
+
             seq1 = r1.sequence
             seq2 = r2.sequence
             seq3 = r3.sequence
-                
+
             len1 = len(seq1)
             len3 = len(seq3)
-            
-            bc = seq2
-            seq_counter(bcs_dict,bc)
-            
-        
-            if do_qc and i%500==0:
-                
+
+            # bc = seq2 for sciMET data, matched already
+            # seq_counter(bcs_dict,bc)
+
+            if do_qc and i % 500 == 0:
                 quals1 = r1.get_quality_array()
-                quality_calc(seq1,quals1,r1_base_dict,r1_qual_dict)
-                
+                quality_calc(seq1, quals1, r1_base_dict, r1_qual_dict)
+
                 quals2 = r2.get_quality_array()
-                quality_calc(seq2,quals2,r2_base_dict,r2_qual_dict)
-                
+                quality_calc(seq2, quals2, r2_base_dict, r2_qual_dict)
+
                 quals3 = r3.get_quality_array()
-                quality_calc(seq3,quals3,r3_base_dict,r3_qual_dict)
-                
-                        
-                """
-                if len1 >= 46 and len3 >= 45:
+                quality_calc(seq3, quals3, r3_base_dict, r3_qual_dict)
 
-                    bc = seq2[8:24]
+            if len1 >= 40 and len3 >= 40:
+                bc = seq2[8:24]
+                match, dist = edit_match(seq2[:8], "CAGACGCG", 2)
 
-                    match, dist = edit_match(seq2[:8], 'CAGACGCG', 2)
+                if match:
+                    seq_counter(bcs_dict, bc)
 
-                    if match:
-                """
-            R1_clean.write(f'@{r1.name}_1_{bc}\n')
-            R1_clean.write(f'{r1.sequence[12:]}\n')
-            R1_clean.write('+\n')
-            R1_clean.write(f'{r1.quality[12:]}\n')
+                    R1_clean.write(f"@{r1.name}_1_{bc}\n")
+                    R1_clean.write(f"{r1.sequence[15:48]}\n")
+                    R1_clean.write("+\n")
+                    R1_clean.write(f"{r1.quality[15:48]}\n")
 
-            R3_clean.write(f'@{r3.name}_2_{bc}\n')
-            R3_clean.write(f'{r3.sequence[12:90]}\n')
-            R3_clean.write('+\n')
-            R3_clean.write(f'{r3.quality[12:90]}\n')
-            
-            if i>N_read_extract and limit: break
-    
+                    R3_clean.write(f"@{r3.name}_2_{bc}\n")
+                    R3_clean.write(f"{r3.sequence[15:48]}\n")
+                    R3_clean.write("+\n")
+                    R3_clean.write(f"{r3.quality[15:48]}\n")
+
+            if i > N_read_extract and limit:
+                break
+
     r1_qual_df = quality_df(r1_qual_dict)
     r2_qual_df = quality_df(r2_qual_dict)
     r3_qual_df = quality_df(r3_qual_dict)
-    
+
     r1_base_df = quality_df(r1_base_dict)
     r2_base_df = quality_df(r2_base_dict)
     r3_base_df = quality_df(r3_base_dict)
-    
-    r1_qual_df.to_csv(R1_fastq.replace('.fastq', '_quals.csv'))
-    r2_qual_df.to_csv(R2_fastq.replace('.fastq', '_quals.csv'))
-    r3_qual_df.to_csv(R3_fastq.replace('.fastq', '_quals.csv'))
-    
-    r1_base_df.to_csv(R1_fastq.replace('.fastq', '_bases.csv'))
-    r2_base_df.to_csv(R2_fastq.replace('.fastq', '_bases.csv'))
-    r3_base_df.to_csv(R3_fastq.replace('.fastq', '_bases.csv'))
-    
+
+    r1_qual_df.to_csv(R1_fastq.replace(".fastq", "_quals.csv"))
+    r2_qual_df.to_csv(R2_fastq.replace(".fastq", "_quals.csv"))
+    r3_qual_df.to_csv(R3_fastq.replace(".fastq", "_quals.csv"))
+
+    r1_base_df.to_csv(R1_fastq.replace(".fastq", "_bases.csv"))
+    r2_base_df.to_csv(R2_fastq.replace(".fastq", "_bases.csv"))
+    r3_base_df.to_csv(R3_fastq.replace(".fastq", "_bases.csv"))
+
     R1_clean.close()
     R3_clean.close()
-    
-    with open(bcs_json, 'w') as json_file:
+
+    with open(bcs_json, "w") as json_file:
         json.dump(bcs_dict, json_file)
         
 def extract_bc_from_bam(indir,sample,part,limit):
@@ -363,20 +356,30 @@ def write_bc_fasta(indir,sample):
             
 def save_quad_batch_json(indir,sample,part,limit):
     
+    batch = str(1).zfill(3)
+    batch_json = f'{indir}/{sample}/split/quads_part_{part}_batch_{batch}.json'
+        
+    if os.path.isfile(batch_json):
+        print(batch_json,' exists, skip')
+        return
+    
     bcs = pd.read_csv(f'{indir}/{sample}/{sample}_whitelist.csv')
+    matching_csv = pd.read_csv(f'{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv')
+    raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
 
     dir_split = f'{indir}/{sample}/split/'
     
-    meth_file = f'{indir}/{sample}/split/output_{part}/CpG_context_{sample}_R1.part_{part}_bismark_bt2_pe.txt.gz'
+    meth_file = f'{indir}/{sample}/split/output_{part}/CpG_context_{sample}_R1.part_{part}_clean_bismark_bt2_pe.txt.gz'
   
-    sub_batch_N = int(np.sqrt(len(bcs)))+1
+    #sub_batch_N = int(np.sqrt(len(bcs)))+1 # better load balancing for very large datasets
+    sub_batch_N = 20
 
     bc_splits = np.array_split(bcs.bc, sub_batch_N)  
     
     quad_dict = {}
 
-    for bc in bcs.bc.to_list():
-        quad_dict[bc] = []
+    #for bc in bcs.bc.to_list():
+    #    quad_dict[bc] = []
 
     i = 0
     with gzip.open(meth_file, 'rt') as f:
@@ -384,22 +387,24 @@ def save_quad_batch_json(indir,sample,part,limit):
             i+=1
             
             split_line = line.strip().split('\t')
-            bc = split_line[0].split(':')[0]
             
-            if bc in quad_dict:
-                quad_dict_store(quad_dict, bc,['_'.join(split_line[-3:-1]),split_line[-1]])
+            #raw_bc = split_line[0].split(':')[0] # sciMET fastqs
+            raw_bc = split_line[0].split('_')[1]  # raw bc added to name fastqs
+            
+            if raw_bc in raw_to_tenx:
+                matched_bc = raw_to_tenx[raw_bc]
+      
+                quad_dict_store(quad_dict, matched_bc,'_'.join(split_line[-3:]))
             
             if i>N_read_extract and limit: break
-        
+            
     for j in range(sub_batch_N):
         batch = str(j+1).zfill(3)
         batch_json = f'{indir}/{sample}/split/quads_part_{part}_batch_{batch}.json'
-
         sub_agg={}
         for a in bc_splits[j]:
             if a in quad_dict:
                 sub_agg[a] = quad_dict[a]
-
     
         with open(batch_json, 'w') as json_file:
             json.dump(sub_agg, json_file)
@@ -631,7 +636,7 @@ def make_count_sparse_mtx_batch_windows(indir, sample, batch, window, chr_idx_di
         dedup = {}
 
         for b in data_sub[bc]:
-            seq_counter(dedup, "_".join(b))
+            seq_counter(dedup, b)
 
         # convert back to ['chr', '100', 'Z'] format
 
