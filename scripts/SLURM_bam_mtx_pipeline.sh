@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -c 20
-#SBATCH --mem=30G
-#SBATCH -t 0:20:00
+#SBATCH --mem=20G
+#SBATCH -t 0:10:00
 #SBATCH -p short
 #SBATCH -o methyl_bam_mtx_job_%A.out
 
