@@ -261,6 +261,41 @@ def extract_bc_from_bam(indir,sample,part,limit):
     with open(bcs_json, 'w') as json_file:
         json.dump(bcs_dict, json_file)
         
+def tag_bam_with_barcodes(indir, sample, part, limit):
+    
+    matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_matched_list.csv")
+
+    matching_csv = matching_csv[
+        (matching_csv.AS >= 13) & (matching_csv.read_cnt >= 100)
+    ].copy()
+
+    raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
+
+    sam_tag = f"{indir}/{sample}/split/output_{part}/{sample}_R1.part_{part}_clean_bismark_bt2_pe_tagged.bam"
+    sam = f"{indir}/{sample}/split/output_{part}/{sample}_R1.part_{part}_clean_bismark_bt2_pe.bam"
+    
+    if os.path.isfile(sam_tag):
+        print(sam_tag,' exists, skip')
+        return
+    
+    samfile = pysam.AlignmentFile(sam, "rb", threads=8)
+    tagged_bam = pysam.AlignmentFile(sam_tag, "wb", template=samfile, threads=8)
+
+    i = 0
+    for read in tqdm(samfile.fetch(until_eof=True)):
+        i += 1
+        raw_barcode = read.qname.split("_")[1]
+        if raw_barcode in raw_to_tenx:
+            matched_barcode = raw_to_tenx[raw_barcode]
+
+            read.set_tag("CB", matched_barcode)
+            tagged_bam.write(read)
+        if i > N_read_extract and limit:
+            break
+            
+    tagged_bam.close()
+    samfile.close()
+    
 def extract_bc_from_fastq(indir,sample,part,limit):
     
     i = 0
