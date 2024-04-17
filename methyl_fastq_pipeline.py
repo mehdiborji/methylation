@@ -10,7 +10,6 @@ parser.add_argument('-s', '--sample', type=str)
 parser.add_argument('-l', '--limit', default=False, action='store_true')
 
 args = parser.parse_args()
-
 cores = args.cores
 indir = args.indir
 sample = args.sample
