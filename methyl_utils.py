@@ -184,6 +184,7 @@ def extract_clean_fastq(indir, sample, part, limit):
 
             if len1 >= 40 and len3 >= 40:
                 bc = seq2[8:24]
+                
                 match, dist = edit_match(seq2[:8], "CAGACGCG", 2)
 
                 if match:
