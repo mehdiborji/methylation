@@ -323,25 +323,37 @@ def aggregate_bc_dicts(indir, sample):
         
 def write_bc_whitelist(indir, sample, bc_file):
     
+    fasta_file = f'{indir}/{sample}/{sample}_bc_whitelist.fasta'
+    
+    if os.path.isfile(fasta_file):
+        print(fasta_file, " exists, skip")
+        return
+    
     bcs = pd.read_table(bc_file, names=["bc"])
     bcs = pd.DataFrame(bcs.bc.apply(lambda x: x.split("-")[0]))
 
     bcs = bcs.sort_values(by='bc')
     bcs['rev_bc'] = bcs.bc.apply(lambda x: mappy.revcomp(x))
 
-    with open(f'{indir}/{sample}/{sample}_bc_whitelist.fasta', 'w') as f:
+    with open(fasta_file, 'w') as f:
         for bc in bcs.rev_bc:
             f.write(f">{bc}\n")
             f.write(f"{bc}\n")
             
-            
 def write_bc_raw_reads(indir, sample, threshold):
+    
+    fasta_file = f"{indir}/{sample}/{sample}_bc_raw_reads.fasta"
+    
+    if os.path.isfile(fasta_file):
+        print(fasta_file, " exists, skip")
+        return
+    
     bc_file = f"{indir}/{sample}/{sample}_agg_cnt_raw_bcs.csv"
     bcs = pd.read_csv(bc_file)
     bcs.columns = ["bc", "read_cnt"]
     bcs = bcs[bcs.read_cnt > threshold].copy()
     bcs = bcs.sort_values(by="bc", ascending=False)
-    with open(f"{indir}//{sample}/{sample}_bc_raw_reads.fasta", "w") as f:
+    with open(fasta_file, "w") as f:
         for bc in bcs.bc:
             f.write(f">{bc}\n")
             f.write(f"{bc}\n")
