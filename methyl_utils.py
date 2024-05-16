@@ -10,6 +10,7 @@ import gzip
 import scipy.io
 from scipy.sparse import csr_matrix
 import re
+import mappy
 
 N_read_extract = 10000
 
@@ -189,6 +190,7 @@ def extract_clean_fastq(indir, sample, part, limit):
 
             if len1 >= 40 and len3 >= 40:
                 bc = seq2[8:24]
+                
                 match, dist = edit_match(seq2[:8], "CAGACGCG", 2)
 
                 if match:
@@ -318,15 +320,28 @@ def aggregate_bc_dicts(indir, sample):
 
     pd.Series(data_agg).to_csv(agg_read_csv)
 
+        
+def write_bc_whitelist(indir, sample, bc_file):
+    
+    bcs = pd.read_table(bc_file, names=["bc"])
+    bcs = pd.DataFrame(bcs.bc.apply(lambda x: x.split("-")[0]))
 
-def write_bc_fasta(indir, sample):
+    bcs = bcs.sort_values(by='bc')
+    bcs['rev_bc'] = bcs.bc.apply(lambda x: mappy.revcomp(x))
+
+    with open(f'{indir}/{sample}/{sample}_bc_whitelist.fasta', 'w') as f:
+        for bc in bcs.rev_bc:
+            f.write(f">{bc}\n")
+            f.write(f"{bc}\n")
+            
+            
+def write_bc_raw_reads(indir, sample, threshold):
     bc_file = f"{indir}/{sample}/{sample}_agg_cnt_raw_bcs.csv"
     bcs = pd.read_csv(bc_file)
     bcs.columns = ["bc", "read_cnt"]
-    bcs = bcs[bcs.read_cnt > 2].copy()
+    bcs = bcs[bcs.read_cnt > threshold].copy()
     bcs = bcs.sort_values(by="bc", ascending=False)
-
-    with open(f"{indir}/{sample}_bcreads.fasta", "w") as f:
+    with open(f"{indir}//{sample}/{sample}_bc_raw_reads.fasta", "w") as f:
         for bc in bcs.bc:
             f.write(f">{bc}\n")
             f.write(f"{bc}\n")
