@@ -4,6 +4,7 @@
 #SBATCH -t 0:10:00
 #SBATCH -p short
 #SBATCH -o methyl_bam_mtx_job_%A.out
+#SBATCH --account=chen_fec176
 
 echo 'indir =' $1
 echo 'sample =' $2

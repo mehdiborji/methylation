@@ -5,6 +5,7 @@
 #SBATCH -t 0:30:00
 #SBATCH -p short
 #SBATCH -o methylation_extractor_job_%A.out
+#SBATCH --account=chen_fec176
 
 bam=$1
 outdir=$1

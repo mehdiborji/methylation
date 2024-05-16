@@ -4,6 +4,7 @@
 #SBATCH -t 0:20:00
 #SBATCH -p priority
 #SBATCH -o merge_bam_job_%A.out
+#SBATCH --account=chen_fec176
 
 #samtools merge -@20 -n -f -o $1/$2/$2_name_sorted.bam $1/$2/split/output_*/*_tagged.bam
 #samtools fixmate -@20 -m $1/$2/$2_name_sorted.bam $1/$2/$2_name_sorted_fixmate.bam

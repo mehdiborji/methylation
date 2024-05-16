@@ -5,6 +5,7 @@
 #SBATCH -t 0:50:00
 #SBATCH -p short
 #SBATCH -o bismark_align_job_%A.out
+#SBATCH --account=chen_fec176
 
 read1=$1
 read2=$2

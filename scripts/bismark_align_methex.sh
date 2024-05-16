@@ -5,6 +5,7 @@
 #SBATCH -t 1:30:00
 #SBATCH -p short
 #SBATCH -o methylation_extractor_job_%A.out
+#SBATCH --account=chen_fec176
 
 read1=$1
 read2=$2

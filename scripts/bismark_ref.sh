@@ -5,6 +5,7 @@
 #SBATCH -t 1:25:00
 #SBATCH -p priority
 #SBATCH -o bismark_genome_preparation_job_%A.out
+#SBATCH --account=chen_fec176
 
 ref_dir=$1
 
