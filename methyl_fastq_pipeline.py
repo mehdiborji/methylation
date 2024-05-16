@@ -46,9 +46,32 @@ if barcodes is None:
 
 methyl_utils.write_bc_whitelist(indir, sample, whitelist)
 
-subprocess.call([ f'{py_dir}/scripts/barcode_ref.sh', f'{indir}/{sample}/{sample}_bc_whitelist.fasta', f'{indir}/{sample}/{sample}_ref/'])
+######################################################
 
-subprocess.call([ f'{py_dir}/scripts/barcode_align.sh', f'{indir}/{sample}/{sample}_bc_raw_reads.fasta', f'{indir}/{sample}/{sample}_ref/', f'{indir}/{sample}/{sample}_matching', cores, '-1'])
+ref_generation_log = f'{indir}/{sample}/{sample}_ref/Log.out'
+
+if os.path.isfile(ref_generation_log):
+    print('ref generation log', ref_generation_log,' exists')
+    with open(ref_generation_log, 'r') as file:
+        lines = file.readlines()
+        last_line = lines[-1].strip()
+    print(last_line)
+    if last_line != 'DONE: Genome generation, EXITING':
+        print('last line of Genome generation log is not what it should be, possibly corrupt reference')
+else:
+    print('matching file,', sam_file,' does not exist, will make reference')
+    subprocess.call([ f'{py_dir}/scripts/barcode_ref.sh', f'{indir}/{sample}/{sample}_bc_whitelist.fasta', f'{indir}/{sample}/{sample}_ref/'])
+
+######################################################
+
+alignment_log = f'{indir}/{sample}/{sample}_matchingLog.final.out'
+
+if os.path.isfile(alignment_log):
+    print('alignment log', alignment_log,' exists')
+else:
+    print('alignment log', alignment_log,' does not exist, will perform alignment')
+    subprocess.call([ f'{py_dir}/scripts/barcode_align.sh', f'{indir}/{sample}/{sample}_bc_raw_reads.fasta', f'{indir}/{sample}/{sample}_ref/', f'{indir}/{sample}/{sample}_matching', cores, '-1'])
+
 ######################################################
     
     
