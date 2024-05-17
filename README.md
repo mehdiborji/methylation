@@ -2,7 +2,7 @@
 
 
 - The first step is to do some preprocessing on the input FASTQ files.
-the pipeline assumes the reads are in a directory arrange in the following format
+the pipeline assumes the reads are in a directory arranged in the following format:
 
 ```
 /input_directory/sample_name_R1_001.fastq.gz # Read1 of DNA fragment
@@ -18,13 +18,17 @@ For example:
 /n/scratch/users/m/meb521/methyl_seq/nextseq/xBO87_ATAC_S1_R3_001.fastq.gz
 ```
 
-The following script wraps the `methyl_bam_mtx_pipeline.py` into a SLURM job with two input variables required for input:
-input directory where the triplet of FASTQ files sit and second 
+The following script wraps the `methyl_fastq_pipeline.py` into a SLURM job with two input variables required for input:
+`input_directory` and `sample_name`
 ```
 ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/methyl_seq/nextseq xBO87_ATAC_S1
 ```
+Another example submitted with sbatch
+```
+sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/xBO140/fastqs xBO140a_S1
+```
 
-The pipeline currently is harcoded with the assumption that R2 is 24nt long and has 8nt of splint adapter CAGACGCG at the beginning and reverse compliment of 10x ATAC barcodes from 9-24. It is also harcoded to clip first 15nt and last 2nt of both DNA fragment reads. These options can be modified by modifying `extract_clean_fastq` function within `methyl_utils.py` script
+The pipeline currently is harcoded with the assumption that R2 is 24nt long and has 8nt of splint adapter CAGACGCG at the beginning and reverse compliment of 10x ATAC barcodes from 9-24. It is also harcoded to clip first 11nt and last 2nt of R1 first 2nt and last 2nt of R3 reads. These options can be modified by modifying `extract_clean_fastq` function within `methyl_utils.py` script
 
 The pipeline does several steps including splitting, trimming, barcode transfer from index reads into cDNA reads, potentially quality filtering reads, and collecting raw barcodes for barcode matching.
 
