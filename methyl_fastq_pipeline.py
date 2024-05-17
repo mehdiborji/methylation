@@ -95,6 +95,10 @@ else:
 
 ######################################################
 
+methyl_utils.processing_matching(indir, sample, AS_min=10)
+methyl_utils.filered_barcodes(indir, sample, read_cnt_min=10000)
+
+######################################################
 
 """
 pool = Pool(int(cores))
