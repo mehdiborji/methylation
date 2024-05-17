@@ -33,11 +33,15 @@ The pipeline does several steps including splitting, trimming, barcode transfer 
 
 
 ```
-python ~/methylation/scripts/methyl_alignment_pipeline.py \
-    /n/scratch/users/m/meb521/methyl_seq/nextseq \
-    xBO87_ATAC_S1 \
-    /n/scratch/users/m/meb521/GRCh38_v44/ \
-    job_submit
+python ~/methylation/methyl_alignment_pipeline.py \
+        -r /n/scratch/users/m/meb521/GRCm39 \
+        -i /n/scratch/users/m/meb521/xBO140/fastqs \
+        -s xBO140a_S1 -b -j
+```
+
+To monitor the state of each aligment job we can look at last line of the log which contains total number of reads processed so far
+```
+find . -type f -name 'methylation_extractor_job_*' -exec tail -n 1 {} \;
 ```
 
 - After alignment postprocessing and count matrix generation is done with the second SLURM pipeline:
