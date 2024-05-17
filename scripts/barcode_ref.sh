@@ -10,7 +10,7 @@ echo $genome_dir
 
 STAR \
 --runMode genomeGenerate \
---runThreadN 4 \
+--runThreadN 20 \
 --genomeDir $2 \
 --genomeFastaFiles $1 \
 --genomeSAindexNbases 6 \
