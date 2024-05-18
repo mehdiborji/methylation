@@ -192,7 +192,7 @@ def extract_clean_fastq(indir, sample, part, limit):
 
             if len1 >= 40 and len3 >= 40:
                 bc = seq2[8:24]
-                
+
                 match, dist = edit_match(seq2[:8], "CAGACGCG", 2)
 
                 if match:
@@ -322,34 +322,33 @@ def aggregate_bc_dicts(indir, sample):
 
     pd.Series(data_agg).to_csv(agg_read_csv)
 
-        
+
 def write_bc_whitelist(indir, sample, bc_file):
-    
-    fasta_file = f'{indir}/{sample}/{sample}_bc_whitelist.fasta'
-    
+    fasta_file = f"{indir}/{sample}/{sample}_bc_whitelist.fasta"
+
     if os.path.isfile(fasta_file):
         print(fasta_file, " exists, skip")
         return
-    
+
     bcs = pd.read_table(bc_file, names=["bc"])
     bcs = pd.DataFrame(bcs.bc.apply(lambda x: x.split("-")[0]))
 
-    bcs = bcs.sort_values(by='bc')
-    bcs['rev_bc'] = bcs.bc.apply(lambda x: mappy.revcomp(x))
+    bcs = bcs.sort_values(by="bc")
+    bcs["rev_bc"] = bcs.bc.apply(lambda x: mappy.revcomp(x))
 
-    with open(fasta_file, 'w') as f:
+    with open(fasta_file, "w") as f:
         for bc in bcs.rev_bc:
             f.write(f">{bc}\n")
             f.write(f"{bc}\n")
-            
+
+
 def write_bc_raw_reads(indir, sample, threshold):
-    
     fasta_file = f"{indir}/{sample}/{sample}_bc_raw_reads.fasta"
-    
+
     if os.path.isfile(fasta_file):
         print(fasta_file, " exists, skip")
         return
-    
+
     bc_file = f"{indir}/{sample}/{sample}_agg_cnt_raw_bcs.csv"
     bcs = pd.read_csv(bc_file)
     bcs.columns = ["bc", "read_cnt"]
@@ -360,70 +359,76 @@ def write_bc_raw_reads(indir, sample, threshold):
             f.write(f">{bc}\n")
             f.write(f"{bc}\n")
 
+
 def processing_matching(indir, sample, AS_min=10):
-    
     all_AS = []
     all_pairs = []
-    
-    samfile = pysam.AlignmentFile(f'{indir}/{sample}/{sample}_matching.sam', 'rb')
+
+    samfile = pysam.AlignmentFile(f"{indir}/{sample}/{sample}_matching.sam", "rb")
 
     for read in tqdm(samfile.fetch()):
-        AS = read.get_tag('AS')
+        AS = read.get_tag("AS")
         all_AS.append([AS, read.flag])
-        if read.flag==0:
+        if read.flag == 0:
             bc = read.reference_name
             seq = read.query
-            all_pairs.append([AS,bc,seq])
-    
-    print('making all_pairs DF')
+            all_pairs.append([AS, bc, seq])
+
+    print("making all_pairs DF")
     all_pairs = pd.DataFrame(all_pairs)
-    bc = pd.read_csv(f'{indir}/{sample}/{sample}_agg_cnt_raw_bcs.csv')
-    bc.columns = ['bc','read_cnt']
-    all_pairs.columns = ['AS','tenx_whitelist','bc']
-    matched = bc.merge(all_pairs,how='left',on='bc')
-    print('saving matching_raw_to_tenx DF')
-    matched.to_csv(f'{indir}/{sample}/{sample}_matching_raw_to_tenx.csv',index=None)
-    
-    matched = matched[matched.AS>=AS_min].copy()
-    
-    print('saving tenx_passin')
-    matched.to_csv(f'{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv',index=None)
-    
+    bc = pd.read_csv(f"{indir}/{sample}/{sample}_agg_cnt_raw_bcs.csv")
+    bc.columns = ["bc", "read_cnt"]
+    all_pairs.columns = ["AS", "tenx_whitelist", "bc"]
+    matched = bc.merge(all_pairs, how="left", on="bc")
+    print("saving matching_raw_to_tenx DF")
+    matched.to_csv(f"{indir}/{sample}/{sample}_matching_raw_to_tenx.csv", index=None)
+
+    matched = matched[matched.AS >= AS_min].copy()
+
+    print("saving tenx_passin")
+    matched.to_csv(
+        f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv", index=None
+    )
+
+
 def filered_barcodes(indir, sample, read_cnt_min=10000):
-    
-    matched = pd.read_csv(f'{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv')
-    matched_sub = matched[['read_cnt','tenx_whitelist']]
-    matched_sub_grouped = matched_sub.groupby('tenx_whitelist').sum()
-    
-    agg_bcs = matched_sub_grouped[matched_sub_grouped.read_cnt>0]
-    agg_bcs=agg_bcs.sort_values(by='read_cnt',ascending=False)
-    agg_bcs['log10_read_cnt'] = np.log10(agg_bcs.read_cnt)
-    
-    plt.figure(figsize=(4,3))
-    log10_ranks=np.log10(np.arange(1,len(agg_bcs)+1))
-    log10_cnts=agg_bcs.log10_read_cnt
-    plt.plot(log10_ranks,log10_cnts)#,label='Rank Plot of Reads')
-    plt.xlabel('Log10 Ranks')
-    plt.ylabel('Log10 Read Counts')
-    plt.savefig(f'{indir}/{sample}/{sample}_rankplot.pdf',bbox_inches='tight')
+    matched = pd.read_csv(f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv")
+    matched_sub = matched[["read_cnt", "tenx_whitelist"]]
+    matched_sub_grouped = matched_sub.groupby("tenx_whitelist").sum()
+
+    agg_bcs = matched_sub_grouped[matched_sub_grouped.read_cnt > 0]
+    agg_bcs = agg_bcs.sort_values(by="read_cnt", ascending=False)
+    agg_bcs["log10_read_cnt"] = np.log10(agg_bcs.read_cnt)
 
     plt.figure(figsize=(4, 3))
-    sns.histplot(log10_cnts[log10_cnts>2],bins=100)
-    plt.xlabel('Log10 Read Counts')
-    plt.savefig(f'{indir}/{sample}/{sample}_histogram.pdf',bbox_inches='tight')
-    
-    agg_bcs_filtered = agg_bcs[agg_bcs.read_cnt>read_cnt_min]
-    matched_filtered = matched[ matched.tenx_whitelist.isin(agg_bcs_filtered.index)].copy()
-    print('saving raw_to_tenx_whitelist')
-    matched_filtered.to_csv(f'{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv',index=None)
+    log10_ranks = np.log10(np.arange(1, len(agg_bcs) + 1))
+    log10_cnts = agg_bcs.log10_read_cnt
+    plt.plot(log10_ranks, log10_cnts)  # ,label='Rank Plot of Reads')
+    plt.xlabel("Log10 Ranks")
+    plt.ylabel("Log10 Read Counts")
+    plt.savefig(f"{indir}/{sample}/{sample}_rankplot.pdf", bbox_inches="tight")
+
+    plt.figure(figsize=(4, 3))
+    sns.histplot(log10_cnts[log10_cnts > 2], bins=100)
+    plt.xlabel("Log10 Read Counts")
+    plt.savefig(f"{indir}/{sample}/{sample}_histogram.pdf", bbox_inches="tight")
+
+    agg_bcs_filtered = agg_bcs[agg_bcs.read_cnt > read_cnt_min]
+    matched_filtered = matched[
+        matched.tenx_whitelist.isin(agg_bcs_filtered.index)
+    ].copy()
+    print("saving raw_to_tenx_whitelist")
+    matched_filtered.to_csv(
+        f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv", index=None
+    )
 
     bcs_random = agg_bcs_filtered.read_cnt.sample(frac=1)
     bcs = agg_bcs_filtered.loc[bcs_random.index]
-    bcs = bcs[['read_cnt']].copy()
+    bcs = bcs[["read_cnt"]].copy()
     bcs = bcs.reset_index()
-    bcs.columns = ['bc','count']
-    bcs = bcs.set_index('bc')
-    print('saving whitelist')
+    bcs.columns = ["bc", "count"]
+    bcs = bcs.set_index("bc")
+    print("saving whitelist")
     bcs.to_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
 
 
