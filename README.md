@@ -38,7 +38,7 @@ The pipeline does several steps including splitting, trimming, barcode transfer 
 
 ```
 python ~/methylation/methyl_alignment_pipeline.py \
-        -r /n/scratch/users/m/meb521/GRCm39 \
+        -r /n/scratch/users/m/meb521/GRCm39_full \
         -i /n/scratch/users/m/meb521/xBO140/fastqs \
         -s xBO140a_S1 -b -j
 ```
