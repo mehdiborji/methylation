@@ -14,4 +14,4 @@ echo $ref_dir
 module load gcc/9.2.0
 module load bowtie2/2.5.1
 
-/home/meb521/Bismark-0.24.2/bismark_genome_preparation --verbose $1 --parallel 10
+/home/meb521/Bismark-0.24.2/bismark_genome_preparation --verbose $ref_dir --parallel 10
