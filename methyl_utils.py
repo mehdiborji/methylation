@@ -14,7 +14,7 @@ import mappy
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-N_read_extract = 10000
+N_read_extract = 100000
 
 print(N_read_extract)
 
@@ -432,13 +432,15 @@ def filered_barcodes(indir, sample, read_cnt_min=10000):
     bcs.to_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
 
 
-def save_quad_batch_json(indir, sample, part, limit):
+def save_quad_batch_json(indir, sample, part, context, limit):
     batch = str(1).zfill(3)
-    batch_json = f"{indir}/{sample}/split/quads_part_{part}_batch_{batch}.json"
+    batch_json = f"{indir}/{sample}/split/quads_part_{part}_batch_{batch}_{context}.json"
 
+    """
     if os.path.isfile(batch_json):
         print(batch_json, " exists, skip")
         return
+    """
 
     bcs = pd.read_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
     matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv")
@@ -446,7 +448,7 @@ def save_quad_batch_json(indir, sample, part, limit):
 
     dir_split = f"{indir}/{sample}/split"
 
-    meth_file = f"{dir_split}/output_{part}/CpG_context_{sample}_R1.part_{part}_clean_bismark_bt2_pe.txt.gz"
+    meth_file = f"{dir_split}/output_{part}/{context}_{sample}_R1.part_{part}_clean_bismark_bt2_pe.txt.gz"
 
     # sub_batch_N = int(np.sqrt(len(bcs)))+1 # better load balancing for very large datasets
     sub_batch_N = 20
@@ -459,26 +461,48 @@ def save_quad_batch_json(indir, sample, part, limit):
     #    quad_dict[bc] = []
 
     i = 0
+    
+    conversion = False
+    if context == 'Non_CpG_context':
+        conversion = True
+    
+    Non_CpG_to_CpG_dict = {'x':'z',
+                          'h':'z',
+                          'X':'Z',
+                          'H':'Z'}
+    
+    all_failed_bc = []
     with gzip.open(meth_file, "rt") as f:
         for line in tqdm(f):
             i += 1
 
             split_line = line.strip().split("\t")
+            
+            #print(split_line)
+            
+            if conversion:
+                split_line[-1] = Non_CpG_to_CpG_dict[split_line[-1]]
+            
+            #print('converted', split_line)
 
             # raw_bc = split_line[0].split(':')[0] # sciMET fastqs
-            raw_bc = split_line[0].split("_")[1]  # raw bc added to name fastqs
-
+            raw_bc = split_line[0].split("_")[-1]  # raw bc added to name fastqs
+            
             if raw_bc in raw_to_tenx:
                 matched_bc = raw_to_tenx[raw_bc]
 
                 quad_dict_store(quad_dict, matched_bc, "_".join(split_line[-3:]))
+            else:
+                all_failed_bc.append(raw_bc)
 
             if i > N_read_extract and limit:
                 break
+                
+    print(len(all_failed_bc))
 
     for j in range(sub_batch_N):
         batch = str(j + 1).zfill(3)
-        batch_json = f"{dir_split}/quads_part_{part}_batch_{batch}.json"
+        batch_json = f"{dir_split}/quads_part_{part}_batch_{batch}_{context}.json"
         sub_agg = {}
         for a in bc_splits[j]:
             if a in quad_dict:
@@ -488,23 +512,28 @@ def save_quad_batch_json(indir, sample, part, limit):
             json.dump(sub_agg, json_file)
 
 
-def aggregate_quad_parts(indir, sample, batch):
+def aggregate_quad_parts(indir, sample, batch, context):
     dir_split = f"{indir}/{sample}/split"
     files = os.listdir(dir_split)
-    batch_pattern = f"_batch_{batch}.json"
+    batch_pattern = f"_batch_{batch}_{context}.json"
     batch_jsons = sorted([f for f in files if batch_pattern in f])
-    agg_batch_json_file = f"{dir_split}/quad_agg_{batch}.json"
-
+    
+    #print(batch_jsons)
+    
+    agg_batch_json_file = f"{dir_split}/quad_agg_{batch}_{context}.json"
+    
+    """
     if os.path.isfile(agg_batch_json_file):
         print(agg_batch_json_file, " exists, skip")
         return
+    """
 
     data_agg = {}
     for p in batch_jsons:
         sub_parts_of_batch = f"{dir_split}/{p}"
         with open(sub_parts_of_batch, "r") as json_file:
             data_sub = json.load(json_file)
-            print(p, len(data_sub))
+            #print(p, len(data_sub))
             for k in data_sub:
                 if data_agg.get(k) is not None:
                     data_agg[k].extend(data_sub[k])
@@ -532,38 +561,10 @@ def write_mtx(indir, sample, batch, window, context, state, csr):
     with gzip.open(csr_file, "wb") as out:
         scipy.io.mmwrite(out, csr)
 
-
-hg38_chroms = {
-    "chr1": 248956422,
-    "chr2": 242193529,
-    "chr3": 198295559,
-    "chr4": 190214555,
-    "chr5": 181538259,
-    "chr6": 170805979,
-    "chr7": 159345973,
-    "chr8": 145138636,
-    "chr9": 138394717,
-    "chr10": 133797422,
-    "chr11": 135086622,
-    "chr12": 133275309,
-    "chr13": 114364328,
-    "chr14": 107043718,
-    "chr15": 101991189,
-    "chr16": 90338345,
-    "chr17": 83257441,
-    "chr18": 80373285,
-    "chr19": 58617616,
-    "chr20": 64444167,
-    "chr21": 46709983,
-    "chr22": 50818468,
-    "chrX": 156040895,
-    "chrY": 57227415,
-    "chrM": 16569,
-}
-
-
-def chrom_to_windows(chrom_len_dict, window_size):
+def fasta_index_to_windows(fasta_index, window_size):
     i = 0
+    chrs = pd.read_table(fasta_index,header=None)
+    chrom_len_dict = dict(zip(chrs[0],chrs[1]))
     chr_idx_dict = {}
     for chrom in chrom_len_dict:
         last_idx = chrom_len_dict[chrom] // window_size
@@ -572,15 +573,12 @@ def chrom_to_windows(chrom_len_dict, window_size):
             i += 1
     return chr_idx_dict
 
-
-def make_count_sparse_mtx_batch_windows(indir, sample, batch, window, chr_idx_dict):
+def make_count_sparse_mtx_batch_windows(indir, sample, batch, window, chr_idx_dict, context):
     dir_split = f"{indir}/{sample}/split"
 
-    agg_batch_json_file = f"{dir_split}/quad_agg_{batch}.json"
+    agg_batch_json_file = f"{dir_split}/quad_agg_{batch}_{context}.json"
 
     # agg_batch_json_file = f"{dir_split}/quads_part_001_batch_{batch}.json"
-
-    context = "CG"
 
     window_mtx_dir = f"{indir}/{sample}/counts_w_{window}_m{context}"
 
