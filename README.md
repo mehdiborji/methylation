@@ -55,4 +55,11 @@ Required arguments are window_size for binning, context which can be two values 
 ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh /n/scratch/users/m/meb521/methyl_seq/nextseq xBO87_ATAC_S1 50000 
 
 ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh /n/scratch/users/m/meb521/xBO140/fastqs xBO140a_S1 100000 Non_CpG_context ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
+
+sbatch ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
+        /n/scratch/users/m/meb521/xBO140/fastqs \
+        xBO140a_S1 \
+        200000 \
+        CpG_context \
+        ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 ```
