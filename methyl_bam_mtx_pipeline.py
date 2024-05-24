@@ -33,7 +33,10 @@ pool.join()
 
 ######################################################
 
-args = [(indir, sample, str(j+1).zfill(3), methylation_context) for j in range(sub_batch_N)]
+args = [
+    (indir, sample, str(j + 1).zfill(3), methylation_context)
+    for j in range(sub_batch_N)
+]
 
 pool = Pool(int(cores))
 results = pool.starmap(methyl_utils.aggregate_quad_parts, args)
@@ -55,6 +58,13 @@ pool = Pool(int(cores))
 results = pool.starmap(methyl_utils.make_count_sparse_mtx_batch_windows, args)
 pool.close()
 pool.join()
+
+######################################################
+
+methyl_utils.stack_mtx(
+    indir, sample, window_size, chr_idx_dict, methylation_context, int(cores)
+)
+
 ######################################################
 
 parts = methyl_utils.find_sub_fastq_parts(indir, sample)
