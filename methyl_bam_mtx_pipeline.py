@@ -21,11 +21,8 @@ reference_genome_index = args.reference_genome_index
 limit = args.limit
 
 sub_batch_N = 20
-
-######################################################
-
 parts = methyl_utils.find_sub_fastq_parts(indir, sample)
-"""
+
 ######################################################
 
 args = [(indir, sample, part, methylation_context, limit) for part in parts]
@@ -59,7 +56,6 @@ results = pool.starmap(methyl_utils.make_count_sparse_mtx_batch_windows, args)
 pool.close()
 pool.join()
 ######################################################
-"""
 
 parts = methyl_utils.find_sub_fastq_parts(indir, sample)
 args = [(indir, sample, part, limit) for part in parts]

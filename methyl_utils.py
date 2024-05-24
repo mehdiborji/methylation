@@ -506,20 +506,17 @@ def save_quad_batch_json(indir, sample, part, context, limit):
 
 
 def aggregate_quad_parts(indir, sample, batch, context):
+    
     dir_split = f"{indir}/{sample}/split"
     files = os.listdir(dir_split)
     batch_pattern = f"_batch_{batch}_{context}.json"
     batch_jsons = sorted([f for f in files if batch_pattern in f])
-
-    # print(batch_jsons)
-
+    
     agg_batch_json_file = f"{dir_split}/quad_agg_{batch}_{context}.json"
-
-    """
+    
     if os.path.isfile(agg_batch_json_file):
         print(agg_batch_json_file, " exists, skip")
         return
-    """
 
     data_agg = {}
     for p in batch_jsons:
