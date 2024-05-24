@@ -7,12 +7,16 @@ import edlib
 import json
 import subprocess
 import gzip
-import scipy.io
-from scipy.sparse import csr_matrix
 import re
 import mappy
 import matplotlib.pyplot as plt
 import seaborn as sns
+import scipy.io
+from scipy.sparse import csr_matrix
+from scipy.sparse import vstack
+import concurrent.futures
+from anndata import AnnData
+import scanpy as sc
 
 N_read_extract = 100000
 
@@ -506,14 +510,13 @@ def save_quad_batch_json(indir, sample, part, context, limit):
 
 
 def aggregate_quad_parts(indir, sample, batch, context):
-    
     dir_split = f"{indir}/{sample}/split"
     files = os.listdir(dir_split)
     batch_pattern = f"_batch_{batch}_{context}.json"
     batch_jsons = sorted([f for f in files if batch_pattern in f])
-    
+
     agg_batch_json_file = f"{dir_split}/quad_agg_{batch}_{context}.json"
-    
+
     if os.path.isfile(agg_batch_json_file):
         print(agg_batch_json_file, " exists, skip")
         return
@@ -681,3 +684,57 @@ def make_count_sparse_mtx_batch_windows(
         dtype="float32",
     )
     write_mtx(indir, sample, batch, window, context, "score", csr)
+
+
+def load_mtx(file):
+    return scipy.io.mmread(file)
+
+
+def stack_mtx(indir, sample, window, chr_idx_dict, context, cores):
+    bcs = pd.read_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=cores) as executor:
+        mtx_folder = f"{indir}/{sample}/counts_w_{window}_m{context}"
+        chr_idx_string = [idx[0] + "_" + str(idx[1]) for idx in chr_idx_dict.keys()]
+        print("chr_idx_dict lenght = ", len(chr_idx_dict), window, context)
+
+        for mtx_type in ["notmeth", "meth", "score"]:
+            adata_file = f"{mtx_folder}/adata_{mtx_type}.h5ad"
+
+            if os.path.isfile(adata_file):
+                print(adata_file, " exists, skip")
+                continue
+
+            files = os.listdir(mtx_folder)
+
+            file_pattern = f"_{mtx_type}.mtx.gz"
+            files = sorted([f"{mtx_folder}/{f}" for f in files if file_pattern in f])
+            print(files[0])
+            print("load all mtx")
+
+            all_mtx = list(executor.map(load_mtx, files))
+
+            print("stacking")
+            merged_matrix = vstack(all_mtx)
+            merged_matrix = csr_matrix(merged_matrix, dtype="float32")
+            print("AnnData making")
+            adata = AnnData(merged_matrix)
+            adata.obs.index = bcs.bc
+            adata.var.index = chr_idx_string
+            print("AnnData writing")
+            adata.write_h5ad(adata_file, compression="gzip")
+
+        coverage_adata_file = f"{mtx_folder}/adata_coverage.h5ad"
+
+        if os.path.isfile(coverage_adata_file):
+            print(coverage_adata_file, " exists, skip")
+            pass
+        else:
+            print(coverage_adata_file, " will be made")
+
+            adatas = []
+            for mtx_type in ["notmeth", "meth"]:
+                adatas.append(sc.read_h5ad(f"{mtx_folder}/adata_{mtx_type}.h5ad"))
+
+            adatas[0].X = adatas[0].X + adatas[1].X
+            adatas[0].write_h5ad(coverage_adata_file, compression="gzip")
