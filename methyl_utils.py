@@ -739,28 +739,37 @@ def stack_mtx(indir, sample, window, chr_idx_dict, context, cores):
             adatas[0].X = adatas[0].X + adatas[1].X
             adatas[0].write_h5ad(coverage_adata_file, compression="gzip")
 
+
 def Mbias_parser(Mbias_filename):
     context_dict = {}
     current_key = None
     all_lines = []
-    with open(Mbias_filename, 'r') as file:
+    with open(Mbias_filename, "r") as file:
         for line in file:
             line = line.strip()
             all_lines.append(line)
-            if 'context' in line:
+            if "context" in line:
                 current_key = line
                 context_dict[current_key] = []
-            elif current_key is not None and line!='':
-                if '====' not in line and 'position' not in line:
-                    pieces = line.split('\t')
-                    if '' not in pieces:
+            elif current_key is not None and line != "":
+                if "====" not in line and "position" not in line:
+                    pieces = line.split("\t")
+                    if "" not in pieces:
                         context_dict[current_key].append(pieces)
 
-        all_dfs = [pd.DataFrame(context_dict[key]).astype(float) for key in context_dict.keys()]
+        all_dfs = [
+            pd.DataFrame(context_dict[key]).astype(float) for key in context_dict.keys()
+        ]
         for i, df in enumerate(all_dfs):
-            df['context'] = list(result_dict.keys())[i]
+            df["context"] = list(context_dict.keys())[i]
         result_df = pd.concat(all_dfs, ignore_index=True)
-        result_df.columns = ['pos', 'meth_cnt', 'unmeth_cnt', 'prct_meth', 'cov', 'context']
-        
-        result_df.to_csv(Mbias_filename.replace('.txt','.csv'))
-        
+        result_df.columns = [
+            "pos",
+            "meth_cnt",
+            "unmeth_cnt",
+            "prct_meth",
+            "cov",
+            "context",
+        ]
+
+        result_df.to_csv(Mbias_filename.replace(".txt", ".csv"))
