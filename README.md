@@ -23,9 +23,11 @@ The following script wraps the `methyl_fastq_pipeline.py` into a SLURM job with 
 ```
 ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/methyl_seq/nextseq xBO87_ATAC_S1
 ```
-Another example submitted with sbatch
+Other examples submitted with sbatch
 ```
 sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/xBO140/fastqs xBO140a_S1
+sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/xBO140_nova xBO140_novaseq
+sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/xBO153 xBO153_ATAC_240606_S1
 ```
 
 The pipeline currently is harcoded with the assumption that R2 is 24nt long and has 8nt of splint adapter CAGACGCG at the beginning and reverse compliment of 10x ATAC barcodes from 9-24. It is also harcoded to clip first 11nt and last 2nt of R1 first 2nt and last 2nt of R3 reads. These options can be modified by modifying `extract_clean_fastq` function within `methyl_utils.py` script
