@@ -43,6 +43,12 @@ python ~/methylation/methyl_alignment_pipeline.py \
         -r /n/scratch/users/m/meb521/GRCm39_full \
         -i /n/scratch/users/m/meb521/xBO140/fastqs \
         -s xBO140a_S1 -b -j
+        
+
+python ~/methylation/methyl_alignment_pipeline.py \
+        -r /n/scratch/users/m/meb521/GRCm39_full \
+        -i /n/scratch/users/m/meb521/xBO140_nova \
+        -s xBO140_novaseq -b -j
 ```
 
 To monitor the state of each aligment job we can look at last line of the log which contains total number of reads processed so far
