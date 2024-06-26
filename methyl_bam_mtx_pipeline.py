@@ -24,12 +24,20 @@ sub_batch_N = 20
 parts = methyl_utils.find_sub_fastq_parts(indir, sample)
 
 ######################################################
-
+"""
 args = [(indir, sample, part, methylation_context, limit) for part in parts]
 pool = Pool(int(cores))
 results = pool.starmap(methyl_utils.save_quad_batch_json, args)
 pool.close()
 pool.join()
+"""
+
+args = [(indir, sample, part, methylation_context, sub_batch_N, limit) for part in parts]
+pool = Pool(int(cores))
+results = pool.starmap(methyl_utils.save_quad_batch_from_bam, args)
+pool.close()
+pool.join()
+
 
 ######################################################
 
