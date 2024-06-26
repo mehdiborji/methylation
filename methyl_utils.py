@@ -31,10 +31,10 @@ def seq_counter(seq_dict, seq_instance):
 
 
 def quad_dict_store(quad_dict, quad_key, quad_items):
-    if quad_dict.get(quad_key) is None:
-        quad_dict[quad_key] = [quad_items]
-    else:
+    if quad_key in quad_dict:
         quad_dict[quad_key].extend([quad_items])
+    else:
+        quad_dict[quad_key] = [quad_items]
 
 def quality_calc(seq, quals, bases_dict, quals_dict):
     for i in range(len(seq)):
@@ -365,7 +365,7 @@ def write_bc_raw_reads(indir, sample, threshold):
             f.write(f"{bc}\n")
 
 
-def processing_matching(indir, sample, AS_min=10):
+def processing_matching(indir, sample, AS_min=12):
     all_AS = []
     all_pairs = []
 
@@ -396,15 +396,18 @@ def processing_matching(indir, sample, AS_min=10):
     )
 
 
-def filered_barcodes(indir, sample, read_cnt_min=10000):
+def filered_barcodes(indir, sample, read_cnt_min=100000):
+    
+    print("opening raw_to_tenx_passing_AS DF")
     matched = pd.read_csv(f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv")
     matched_sub = matched[["read_cnt", "tenx_whitelist"]]
     matched_sub_grouped = matched_sub.groupby("tenx_whitelist").sum()
 
-    agg_bcs = matched_sub_grouped[matched_sub_grouped.read_cnt > 0]
+    agg_bcs = matched_sub_grouped[matched_sub_grouped.read_cnt > 5]
     agg_bcs = agg_bcs.sort_values(by="read_cnt", ascending=False)
     agg_bcs["log10_read_cnt"] = np.log10(agg_bcs.read_cnt)
-
+    
+    print("plotting rankplot and histogram of 10x matched read counts")
     plt.figure(figsize=(4, 3))
     log10_ranks = np.log10(np.arange(1, len(agg_bcs) + 1))
     log10_cnts = agg_bcs.log10_read_cnt
@@ -414,10 +417,12 @@ def filered_barcodes(indir, sample, read_cnt_min=10000):
     plt.savefig(f"{indir}/{sample}/{sample}_rankplot.pdf", bbox_inches="tight")
 
     plt.figure(figsize=(4, 3))
-    sns.histplot(log10_cnts[log10_cnts > 2], bins=100)
+    sns.histplot(log10_cnts[log10_cnts > 3], bins=100)
     plt.xlabel("Log10 Read Counts")
     plt.savefig(f"{indir}/{sample}/{sample}_histogram.pdf", bbox_inches="tight")
-
+    
+    
+    print(f"filtering for final whitelist with minimum {read_cnt_min} counts")
     agg_bcs_filtered = agg_bcs[agg_bcs.read_cnt > read_cnt_min]
     matched_filtered = matched[
         matched.tenx_whitelist.isin(agg_bcs_filtered.index)
@@ -426,7 +431,9 @@ def filered_barcodes(indir, sample, read_cnt_min=10000):
     matched_filtered.to_csv(
         f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv", index=None
     )
-
+    
+    
+    print(f"shuffling whitelist to balance read counts per batch")
     bcs_random = agg_bcs_filtered.read_cnt.sample(frac=1)
     bcs = agg_bcs_filtered.loc[bcs_random.index]
     bcs = bcs[["read_cnt"]].copy()
@@ -445,7 +452,7 @@ def save_quad_batch_json(indir, sample, part, context, limit):
 
     if os.path.isfile(batch_json):
         print(batch_json, " exists, skip")
-        return
+        #return
 
     bcs = pd.read_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
     matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv")
@@ -517,21 +524,21 @@ def save_quad_batch_json(indir, sample, part, context, limit):
             
 def save_quad_batch_from_bam(indir, sample, part, sub_batch_N, limit):
     
-    batch = str(1).zfill(3)
-    batch_json = (
-        f"{indir}/{sample}/split/quads_part_{part}_batch_{batch}_CpG_context.json"
-    )
-
-    if os.path.isfile(batch_json):
-        print(batch_json, " exists, skip")
-        return
-    bcs = pd.read_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
-    matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv")
-    raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
+    
     dir_split = f"{indir}/{sample}/split"
     bam_file = f"{dir_split}/output_{part}/{sample}_R1.part_{part}_clean_bismark_bt2_pe.bam"
+    
+    bias_meth_file = f"{dir_split}/output_{part}/{sample}_part_{part}_bias_methylation.csv"
+    
+    if os.path.isfile(bias_meth_file):
+        print(bias_meth_file, " exists, skip")
+        #return
+    
+    bcs = pd.read_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
     bc_splits = np.array_split(bcs.bc, sub_batch_N)
- 
+    
+    matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv")
+    raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
 
     all_failed_bc = []
     
@@ -545,6 +552,9 @@ def save_quad_batch_from_bam(indir, sample, part, sub_batch_N, limit):
 
     quad_dict_CpG = {}
     quad_dict_Non_CpG = {}
+    
+    R1_meth_dict = {}
+    R2_meth_dict = {}
 
     bam = pysam.AlignmentFile(bam_file, 'r')
     total_reads = 0
@@ -557,7 +567,7 @@ def save_quad_batch_from_bam(indir, sample, part, sub_batch_N, limit):
         #qual_avg = ave_qual(qs)
         #vals = [qual_avg, read.flag, read.is_read1,read.is_reverse, read.get_tag('XM'), np.abs(read.template_length),len(qs)]
         #qual_list.append(vals)
-        frag_size = read.template_length
+        #frag_size = read.template_length
         chrom = read.reference_name 
         if read.is_reverse:
             meth = read.get_tag('XM')[::-1]
@@ -571,12 +581,12 @@ def save_quad_batch_from_bam(indir, sample, part, sub_batch_N, limit):
             #chrom_pos = [a[1] for a in read.get_aligned_pairs() if a[1] is not None]
             #meth = read.query_alignment_qualities
         
-        """
+        
         if read.is_read1:
-            quality_calc(meth, R2_meth_dict)
+            string_position_count(meth, R2_meth_dict)
         else:
-            quality_calc(meth, R1_meth_dict)
-        """
+            string_position_count(meth, R1_meth_dict)
+        
 
         if len(chrom_pos) != len(meth):
             diff = len(chrom_pos)-len(meth)
@@ -592,13 +602,25 @@ def save_quad_batch_from_bam(indir, sample, part, sub_batch_N, limit):
 
             if raw_bc in raw_to_tenx:
                 matched_bc = raw_to_tenx[raw_bc]
-
+                
+                
+                #[quad_dict_store(quad_dict_Non_CpG, matched_bc, f'{chrom}_{chrom_pos[i]+1}_{context_conversion[char]}') for i, char in enumerate(meth) if char in ['H', 'X','x','h']]
+                #[quad_dict_store(quad_dict_CpG, matched_bc, f'{chrom}_{chrom_pos[i]+1}_{char}') for i, char in enumerate(meth) if char in ['z','Z']]
+                
+                for i, char in enumerate(meth):
+                    if char in ['H', 'X','x','h']:
+                        quad_dict_store(quad_dict_Non_CpG, matched_bc, f'{chrom}_{chrom_pos[i]+1}_{context_conversion[char]}')
+                    elif char in ['z','Z']:
+                        quad_dict_store(quad_dict_CpG, matched_bc, f'{chrom}_{chrom_pos[i]+1}_{char}')
+                        
+                """
                 Non_CpG_pos = [f'{chrom}_{chrom_pos[i]+1}_{context_conversion[char]}' for i, char in enumerate(meth) if char in ['H', 'X','x','h']]
                 CpG_pos = [f'{chrom}_{chrom_pos[i]+1}_{char}' for i, char in enumerate(meth) if char in ['z','Z']]
                 for pos in Non_CpG_pos:
                     quad_dict_store(quad_dict_Non_CpG, matched_bc, pos)
                 for pos in CpG_pos:
                     quad_dict_store(quad_dict_CpG, matched_bc, pos)
+                """
 
             else:
                 all_failed_bc.append(raw_bc)
@@ -612,7 +634,6 @@ def save_quad_batch_from_bam(indir, sample, part, sub_batch_N, limit):
     #for context in ['CpG_context', 'Non_CpG_context']:
     
     context = 'Non_CpG_context'
-        
     for j in range(sub_batch_N):
         batch = str(j + 1).zfill(3)
         batch_json = f"{dir_split}/quads_part_{part}_batch_{batch}_{context}.json"
@@ -623,7 +644,7 @@ def save_quad_batch_from_bam(indir, sample, part, sub_batch_N, limit):
 
         with open(batch_json, "w") as json_file:
             json.dump(sub_agg, json_file)
-            
+
     context = 'CpG_context'
     for j in range(sub_batch_N):
         batch = str(j + 1).zfill(3)
@@ -635,6 +656,35 @@ def save_quad_batch_from_bam(indir, sample, part, sub_batch_N, limit):
 
         with open(batch_json, "w") as json_file:
             json.dump(sub_agg, json_file)
+    
+    R1_meth_df = quality_df(R1_meth_dict)
+    R2_meth_df = quality_df(R2_meth_dict)
+    
+    
+    R1_meth_df.to_csv(bias_meth_file.replace("_bias_", "_R1_"), index=None)
+    R2_meth_df.to_csv(bias_meth_file.replace("_bias_", "_R2_"), index=None)
+
+    all_dfs = []
+    for r, df in enumerate([R1_meth_df,R2_meth_df]):
+
+        print(df.shape)
+
+        for context in ['X','Z','H']:
+            h_count = df[df.quantity.isin([context.lower(),context])].groupby('position').sum()
+            h_count_meth = df[df.quantity==context].groupby('position').sum()
+
+            meth_frac = h_count_meth.total_cnt / h_count.total_cnt
+            meth_frac = meth_frac.reset_index()
+
+            meth_frac['read'] = f'{r+1}_{context}'
+
+            all_dfs.append(meth_frac)
+
+    all_dfs = pd.concat(all_dfs)
+    all_dfs = all_dfs.reset_index()
+    all_dfs.total_cnt = all_dfs.total_cnt*100
+    
+    all_dfs.to_csv(bias_meth_file.replace("_R1_", "_bias_"), index=None)
             
             
 def aggregate_quad_parts(indir, sample, batch, context):
