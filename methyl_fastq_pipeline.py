@@ -23,7 +23,7 @@ py_dir = os.path.dirname(os.path.abspath(__file__))
 
 ######################################################
 
-methyl_utils.split_fastq_by_lines(indir, sample, 20e6)
+methyl_utils.split_fastq_by_lines(indir, sample, 40e6)
 
 ######################################################
 

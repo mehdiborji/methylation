@@ -21,6 +21,8 @@ sbatch = args.sbatch
 
 parts = methyl_utils.find_sub_fastq_parts(indir, sample)
 
+print(f"found {len(parts)} parts")
+
 print("current dir:", os.getcwd())
 os.chdir(indir)
 print("current dir changed to:", os.getcwd())
