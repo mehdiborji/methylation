@@ -20,7 +20,7 @@ methylation_context = args.methylation_context
 reference_genome_index = args.reference_genome_index
 limit = args.limit
 
-sub_batch_N = 20
+sub_batch_N = 100
 parts = methyl_utils.find_sub_fastq_parts(indir, sample)
 
 ######################################################
@@ -32,13 +32,13 @@ pool.close()
 pool.join()
 """
 
-args = [(indir, sample, part, methylation_context, sub_batch_N, limit) for part in parts]
+args = [(indir, sample, part, sub_batch_N, limit) for part in parts[:1]]
 pool = Pool(int(cores))
 results = pool.starmap(methyl_utils.save_quad_batch_from_bam, args)
 pool.close()
 pool.join()
 
-
+"""
 ######################################################
 
 args = [
@@ -83,3 +83,4 @@ pool.close()
 pool.join()
 
 ######################################################
+"""

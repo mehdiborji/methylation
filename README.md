@@ -70,4 +70,11 @@ sbatch ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
         200000 \
         CpG_context \
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
+        
+~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
+        /n/scratch/users/m/meb521/xBO140_nova \
+        xBO140_novaseq \
+        200000 \
+        CpG_context \
+        ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 ```
