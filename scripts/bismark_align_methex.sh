@@ -2,9 +2,9 @@
 
 #SBATCH -c 5
 #SBATCH --mem=17G
-#SBATCH -t 1:30:00
+#SBATCH -t 6:30:00
 #SBATCH -p short
-#SBATCH -o methylation_extractor_job_%A.out
+#SBATCH -o bismark_align_and_methylation_extractor_job_%A.out
 #SBATCH --account=chen_fec176
 
 read1=$1
