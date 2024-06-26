@@ -515,6 +515,128 @@ def save_quad_batch_json(indir, sample, part, context, limit):
             json.dump(sub_agg, json_file)
             
             
+def save_quad_batch_from_bam(indir, sample, part, sub_batch_N, limit):
+    
+    batch = str(1).zfill(3)
+    batch_json = (
+        f"{indir}/{sample}/split/quads_part_{part}_batch_{batch}_CpG_context.json"
+    )
+
+    if os.path.isfile(batch_json):
+        print(batch_json, " exists, skip")
+        return
+    bcs = pd.read_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
+    matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv")
+    raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
+    dir_split = f"{indir}/{sample}/split"
+    bam_file = f"{dir_split}/output_{part}/{sample}_R1.part_{part}_clean_bismark_bt2_pe.bam"
+    bc_splits = np.array_split(bcs.bc, sub_batch_N)
+ 
+
+    all_failed_bc = []
+    
+    frags = {}
+    
+    total_reads = 0
+
+    context_conversion = {"x": "z", "h": "z", "X": "Z", "H": "Z"}
+
+    diffs = []
+
+    quad_dict_CpG = {}
+    quad_dict_Non_CpG = {}
+
+    bam = pysam.AlignmentFile(bam_file, 'r')
+    total_reads = 0
+    for read in tqdm(bam.fetch(until_eof=True)):
+
+        total_reads += 1
+
+        #print(read)
+        #qs = read.query_alignment_qualities.tolist()
+        #qual_avg = ave_qual(qs)
+        #vals = [qual_avg, read.flag, read.is_read1,read.is_reverse, read.get_tag('XM'), np.abs(read.template_length),len(qs)]
+        #qual_list.append(vals)
+        frag_size = read.template_length
+        chrom = read.reference_name 
+        if read.is_reverse:
+            meth = read.get_tag('XM')[::-1]
+
+            #chrom_pos = [a[1] for a in read.get_aligned_pairs() if a[1] is not None][::-1]
+            chrom_pos = read.get_reference_positions()[::-1]
+            #meth = read.query_alignment_qualities#[::-1]
+        else:
+            meth = read.get_tag('XM')
+            chrom_pos = read.get_reference_positions()
+            #chrom_pos = [a[1] for a in read.get_aligned_pairs() if a[1] is not None]
+            #meth = read.query_alignment_qualities
+        
+        """
+        if read.is_read1:
+            quality_calc(meth, R2_meth_dict)
+        else:
+            quality_calc(meth, R1_meth_dict)
+        """
+
+        if len(chrom_pos) != len(meth):
+            diff = len(chrom_pos)-len(meth)
+            diffs.append(diff)
+            #print()
+            #break
+            #if diff<-10:
+            #    print(read.cigar,diff,len(read.get_tag('XM')),len(read.get_reference_positions()))
+            #    break
+        else:
+
+            raw_bc = read.qname.split('_')[-1]
+
+            if raw_bc in raw_to_tenx:
+                matched_bc = raw_to_tenx[raw_bc]
+
+                Non_CpG_pos = [f'{chrom}_{chrom_pos[i]+1}_{context_conversion[char]}' for i, char in enumerate(meth) if char in ['H', 'X','x','h']]
+                CpG_pos = [f'{chrom}_{chrom_pos[i]+1}_{char}' for i, char in enumerate(meth) if char in ['z','Z']]
+                for pos in Non_CpG_pos:
+                    quad_dict_store(quad_dict_Non_CpG, matched_bc, pos)
+                for pos in CpG_pos:
+                    quad_dict_store(quad_dict_CpG, matched_bc, pos)
+
+            else:
+                all_failed_bc.append(raw_bc)
+        
+        if total_reads > N_read_extract and limit:
+            break
+                
+
+    print(len(all_failed_bc))
+
+    #for context in ['CpG_context', 'Non_CpG_context']:
+    
+    context = 'Non_CpG_context'
+        
+    for j in range(sub_batch_N):
+        batch = str(j + 1).zfill(3)
+        batch_json = f"{dir_split}/quads_part_{part}_batch_{batch}_{context}.json"
+        sub_agg = {}
+        for a in bc_splits[j]:
+            if a in quad_dict_Non_CpG:
+                sub_agg[a] = quad_dict_Non_CpG[a]
+
+        with open(batch_json, "w") as json_file:
+            json.dump(sub_agg, json_file)
+            
+    context = 'CpG_context'
+    for j in range(sub_batch_N):
+        batch = str(j + 1).zfill(3)
+        batch_json = f"{dir_split}/quads_part_{part}_batch_{batch}_{context}.json"
+        sub_agg = {}
+        for a in bc_splits[j]:
+            if a in quad_dict_CpG:
+                sub_agg[a] = quad_dict_CpG[a]
+
+        with open(batch_json, "w") as json_file:
+            json.dump(sub_agg, json_file)
+            
+            
 def aggregate_quad_parts(indir, sample, batch, context):
     dir_split = f"{indir}/{sample}/split"
     files = os.listdir(dir_split)
