@@ -24,10 +24,10 @@ print(N_read_extract)
 
 
 def seq_counter(seq_dict, seq_instance):
-    if seq_dict.get(seq_instance) is None:
-        seq_dict[seq_instance] = 1
-    else:
+    if seq_instance in seq_dict:
         seq_dict[seq_instance] += 1
+    else:
+        seq_dict[seq_instance] = 1
 
 
 def quad_dict_store(quad_dict, quad_key, quad_items):
@@ -35,6 +35,47 @@ def quad_dict_store(quad_dict, quad_key, quad_items):
         quad_dict[quad_key] = [quad_items]
     else:
         quad_dict[quad_key].extend([quad_items])
+
+def quality_calc(seq, quals, bases_dict, quals_dict):
+    for i in range(len(seq)):
+        if bases_dict.get(str(i)) is None:
+            bases_dict[str(i)] = {}
+            seq_counter(bases_dict[str(i)], seq[i])
+        else:
+            seq_counter(bases_dict[str(i)], seq[i])
+
+        if quals_dict.get(str(i)) is None:
+            quals_dict[str(i)] = {}
+            seq_counter(quals_dict[str(i)], quals[i])
+        else:
+            seq_counter(quals_dict[str(i)], quals[i])
+
+def string_position_count(seq, seqs_dict):
+    for i in range(len(seq)):
+        if i in seqs_dict:
+            seq_counter(seqs_dict[i], seq[i])
+        else:
+            seqs_dict[i] = {}
+            seq_counter(seqs_dict[i], seq[i])
+
+def quality_df(quals_dict):
+    quals_df = pd.DataFrame(quals_dict)
+    quals_df = quals_df.T
+    quals_df = quals_df.fillna(0)
+    quals_df = quals_df.stack()
+    quals_df = quals_df.reset_index()
+    # quals_df.columns = ['base', 'quality', 'tot_count']
+    # quals_df['mult'] = quals_df.quality * quals_df.tot_count
+    # quals_df_grouped = quals_df.groupby('base').sum()
+    quals_df.columns = ["position", "quantity", "total_cnt"]
+    quals_df.position = quals_df.position.astype("int")
+    # quals_df[quals_df.position.isin(np.arange(10))]
+    counts_df = quals_df.groupby("position").sum()
+    quals_df["position_cnt"] = quals_df.position.apply(
+        lambda x: counts_df.loc[x].total_cnt
+    )
+    quals_df["frequency"] = quals_df.total_cnt / quals_df.position_cnt * 100
+    return quals_df
 
 
 def edit_match(input_seq, target_seq, max_dist):
@@ -99,41 +140,6 @@ def split_fastq_by_lines(indir, sample, lines=4e6):
         command_R3 = command_R1.replace("_R1", "_R3")
 
         subprocess.call(f"{command_R1} & {command_R2} & {command_R3}", shell=True)
-
-
-def quality_calc(seq, quals, bases_dict, quals_dict):
-    for i in range(len(seq)):
-        if bases_dict.get(str(i)) is None:
-            bases_dict[str(i)] = {}
-            seq_counter(bases_dict[str(i)], seq[i])
-        else:
-            seq_counter(bases_dict[str(i)], seq[i])
-
-        if quals_dict.get(str(i)) is None:
-            quals_dict[str(i)] = {}
-            seq_counter(quals_dict[str(i)], quals[i])
-        else:
-            seq_counter(quals_dict[str(i)], quals[i])
-
-
-def quality_df(quals_dict):
-    quals_df = pd.DataFrame(quals_dict)
-    quals_df = quals_df.T
-    quals_df = quals_df.fillna(0)
-    quals_df = quals_df.stack()
-    quals_df = quals_df.reset_index()
-    # quals_df.columns = ['base', 'quality', 'tot_count']
-    # quals_df['mult'] = quals_df.quality * quals_df.tot_count
-    # quals_df_grouped = quals_df.groupby('base').sum()
-    quals_df.columns = ["position", "base_qual", "tot_count"]
-    quals_df.position = quals_df.position.astype("int")
-    # quals_df[quals_df.position.isin(np.arange(10))]
-    counts_df = quals_df.groupby("position").sum()
-    quals_df["position_cnt"] = quals_df.position.apply(
-        lambda x: counts_df.loc[x].tot_count
-    )
-    quals_df["freq"] = quals_df.tot_count / quals_df.position_cnt * 100
-    return quals_df
 
 
 def extract_clean_fastq(indir, sample, part, limit):
@@ -507,8 +513,8 @@ def save_quad_batch_json(indir, sample, part, context, limit):
 
         with open(batch_json, "w") as json_file:
             json.dump(sub_agg, json_file)
-
-
+            
+            
 def aggregate_quad_parts(indir, sample, batch, context):
     dir_split = f"{indir}/{sample}/split"
     files = os.listdir(dir_split)
