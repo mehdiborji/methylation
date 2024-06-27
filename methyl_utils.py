@@ -38,6 +38,7 @@ def quad_dict_store(quad_dict, quad_key, quad_items):
     else:
         quad_dict[quad_key] = [quad_items]
 
+
 def quality_calc(seq, quals, bases_dict, quals_dict):
     for i in range(len(seq)):
         if bases_dict.get(str(i)) is None:
@@ -52,6 +53,7 @@ def quality_calc(seq, quals, bases_dict, quals_dict):
         else:
             seq_counter(quals_dict[str(i)], quals[i])
 
+
 def string_position_count(seq, seqs_dict):
     for i in range(len(seq)):
         if i in seqs_dict:
@@ -59,6 +61,7 @@ def string_position_count(seq, seqs_dict):
         else:
             seqs_dict[i] = {}
             seq_counter(seqs_dict[i], seq[i])
+
 
 def quality_df(quals_dict):
     quals_df = pd.DataFrame(quals_dict)
@@ -255,7 +258,7 @@ def extract_bc_from_bam(indir, sample, part, limit):
 
     if os.path.isfile(bcs_json):
         print(bcs_json, " exists, skip")
-        #return
+        # return
 
     bcs_dict = {}
 
@@ -399,7 +402,6 @@ def processing_matching(indir, sample, AS_min=12):
 
 
 def filered_barcodes(indir, sample, read_cnt_min=100000):
-    
     print("opening raw_to_tenx_passing_AS DF")
     matched = pd.read_csv(f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv")
     matched_sub = matched[["read_cnt", "tenx_whitelist"]]
@@ -408,7 +410,7 @@ def filered_barcodes(indir, sample, read_cnt_min=100000):
     agg_bcs = matched_sub_grouped[matched_sub_grouped.read_cnt > 5]
     agg_bcs = agg_bcs.sort_values(by="read_cnt", ascending=False)
     agg_bcs["log10_read_cnt"] = np.log10(agg_bcs.read_cnt)
-    
+
     print("plotting rankplot and histogram of 10x matched read counts")
     plt.figure(figsize=(4, 3))
     log10_ranks = np.log10(np.arange(1, len(agg_bcs) + 1))
@@ -422,30 +424,28 @@ def filered_barcodes(indir, sample, read_cnt_min=100000):
     sns.histplot(log10_cnts[log10_cnts > 3], bins=100)
     plt.xlabel("Log10 Read Counts")
     plt.savefig(f"{indir}/{sample}/{sample}_histogram.pdf", bbox_inches="tight")
-    
-    
+
     print(f"filtering for final whitelist with minimum {read_cnt_min} counts")
     bcs = agg_bcs[agg_bcs.read_cnt > read_cnt_min].copy()
-    matched_filtered = matched[
-        matched.tenx_whitelist.isin(bcs.index)
-    ].copy()
+    matched_filtered = matched[matched.tenx_whitelist.isin(bcs.index)].copy()
     print("saving raw_to_tenx_whitelist")
     matched_filtered.to_csv(
         f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv", index=None
     )
-    
+
     print("saving whitelist")
     bcs.to_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
 
+
 def split_bcs_to_batches(indir, sample, sub_batch_N):
-    bcs = pd.read_csv(f"{indir}/{sample}/{sample}_whitelist.csv",index_col=0)
+    bcs = pd.read_csv(f"{indir}/{sample}/{sample}_whitelist.csv", index_col=0)
 
     # Initialize N batches and their sums
     batches = [[] for _ in range(sub_batch_N)]
     batch_sums = [0] * sub_batch_N
 
     # Distribute numbers to batches based on value, but store original indices
-    for index, number in enumerate(bcs['read_cnt']):
+    for index, number in enumerate(bcs["read_cnt"]):
         # Find the batch with the minimum sum
         min_batch_index = batch_sums.index(min(batch_sums))
         # Add the index to this batch
@@ -455,41 +455,32 @@ def split_bcs_to_batches(indir, sample, sub_batch_N):
 
     bc_batches = []
     for b in batches:
-
-        print(len(b), bcs.iloc[b]['read_cnt'].sum())
+        print(len(b), bcs.iloc[b]["read_cnt"].sum())
         bc_batches.append(bcs.iloc[b].index.tolist())
 
-    with open(f"{indir}/{sample}/{sample}_whitelist_batches.json", 'w') as file:
+    with open(f"{indir}/{sample}/{sample}_whitelist_batches.json", "w") as file:
         json.dump(bc_batches, file)
 
 
 def save_quad_batch_json(indir, sample, part, context, limit):
+    dir_split = f"{indir}/{sample}/split"
+    meth_file = f"{dir_split}/output_{part}/{context}_{sample}_R1.part_{part}_clean_bismark_bt2_pe.txt.gz"
+
     batch = str(1).zfill(3)
-    batch_json = (
-        f"{indir}/{sample}/split/quads_part_{part}_batch_{batch}_{context}.json"
-    )
+    batch_json = f"{dir_split}/quads_part_{part}_batch_{batch}_{context}.json"
 
     if os.path.isfile(batch_json):
         print(batch_json, " exists, skip")
-        #return
+        # return
 
-    bcs = pd.read_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
     matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv")
     raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
 
-    dir_split = f"{indir}/{sample}/split"
-
-    meth_file = f"{dir_split}/output_{part}/{context}_{sample}_R1.part_{part}_clean_bismark_bt2_pe.txt.gz"
-
-    with open(f"{indir}/{sample}/{sample}_whitelist_batches.json", 'r') as file:
+    with open(f"{indir}/{sample}/{sample}_whitelist_batches.json", "r") as file:
         bc_splits = json.load(file)
+    sub_batch_N = len(bc_splits)
 
     quad_dict = {}
-
-    # for bc in bcs.bc.to_list():
-    #    quad_dict[bc] = []
-
-    i = 0
 
     conversion = False
     if context == "Non_CpG_context":
@@ -499,19 +490,19 @@ def save_quad_batch_json(indir, sample, part, context, limit):
 
     all_failed_bc = []
 
+    i = 0
+
     with gzip.open(meth_file, "rt") as f:
         for line in tqdm(f):
             i += 1
 
             split_line = line.strip().split("\t")
-
             # print(split_line)
 
             if conversion:
                 split_line[-1] = Non_CpG_to_CpG_dict[split_line[-1]]
 
             # print('converted', split_line)
-
             # raw_bc = split_line[0].split(':')[0] # sciMET fastqs
             raw_bc = split_line[0].split("_")[-1]  # raw bc added to name fastqs
 
@@ -537,106 +528,114 @@ def save_quad_batch_json(indir, sample, part, context, limit):
 
         with open(batch_json, "w") as json_file:
             json.dump(sub_agg, json_file)
-            
-            
+
+
 def save_quad_batch_from_bam(indir, sample, part, limit):
-    
     dir_split = f"{indir}/{sample}/split"
-    bam_file = f"{dir_split}/output_{part}/{sample}_R1.part_{part}_clean_bismark_bt2_pe.bam"
-    
-    bias_meth_file = f"{dir_split}/output_{part}/{sample}_part_{part}_bias_methylation.csv"
-    
+    bam_file = (
+        f"{dir_split}/output_{part}/{sample}_R1.part_{part}_clean_bismark_bt2_pe.bam"
+    )
+
+    bias_meth_file = (
+        f"{dir_split}/output_{part}/{sample}_part_{part}_bias_methylation.csv"
+    )
+
     if os.path.isfile(bias_meth_file):
         print(bias_meth_file, " exists, skip")
-        #return
-    
-    with open(f"{indir}/{sample}/{sample}_whitelist_batches.json", 'r') as file:
-        bc_splits = json.load(file)
-    sub_batch_N = len(bc_splits)
-    
+        # return
+
     matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv")
     raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
-    
+
+    with open(f"{indir}/{sample}/{sample}_whitelist_batches.json", "r") as file:
+        bc_splits = json.load(file)
+    sub_batch_N = len(bc_splits)
+
     R1_meth_dict = {}
     R2_meth_dict = {}
-    
+
     context_conversion = {"x": "z", "h": "z", "X": "Z", "H": "Z"}
-    
+
     quad_dict_CpG = {}
     quad_dict_Non_CpG = {}
 
     total_failed_reads = 0
     diffs = []
-    frags = {}
-    
-    bam = pysam.AlignmentFile(bam_file, 'r')
-    total_reads = 0
-    
+    # frags = {}
+
+    bam = pysam.AlignmentFile(bam_file, "r")
+
     start_time = time.time()
 
-    for read in bam.fetch(until_eof=True):
+    total_reads = 0
 
+    for read in bam.fetch(until_eof=True):
         total_reads += 1
 
-        #print(read)
-        #qs = read.query_alignment_qualities.tolist()
-        #qual_avg = ave_qual(qs)
-        #vals = [qual_avg, read.flag, read.is_read1,read.is_reverse, read.get_tag('XM'), np.abs(read.template_length),len(qs)]
-        #qual_list.append(vals)
-        #frag_size = read.template_length
-        chrom = read.reference_name 
+        # print(read)
+        # qs = read.query_alignment_qualities.tolist()
+        # qual_avg = ave_qual(qs)
+        # vals = [qual_avg, read.flag, read.is_read1,read.is_reverse, read.get_tag('XM'), np.abs(read.template_length),len(qs)]
+        # qual_list.append(vals)
+        # frag_size = read.template_length
+        chrom = read.reference_name
         if read.is_reverse:
-            meth = read.get_tag('XM')[::-1]
+            meth = read.get_tag("XM")[::-1]
             chrom_pos = read.get_reference_positions()[::-1]
         else:
-            meth = read.get_tag('XM')
+            meth = read.get_tag("XM")
             chrom_pos = read.get_reference_positions()
-        
-        if read.is_read1: # mean it's R2
+
+        if read.is_read1:  # mean it's R2
             meth = meth[10:-10]
             chrom_pos = chrom_pos[10:-10]
             string_position_count(meth, R2_meth_dict)
         else:
             meth = meth[3:-10]
             chrom_pos = chrom_pos[3:-10]
-            
+
             string_position_count(meth, R1_meth_dict)
-        
 
         if len(chrom_pos) != len(meth):
-            diff = len(chrom_pos)-len(meth)
+            diff = len(chrom_pos) - len(meth)
             diffs.append(diff)
-            #print()
-            #break
-            #if diff<-10:
+            # print()
+            # break
+            # if diff<-10:
             #    print(read.cigar,diff,len(read.get_tag('XM')),len(read.get_reference_positions()))
             #    break
         else:
-
-            raw_bc = read.qname.split('_')[-1]
+            raw_bc = read.qname.split("_")[-1]
 
             if raw_bc in raw_to_tenx:
                 matched_bc = raw_to_tenx[raw_bc]
-                
+
                 for i, char in enumerate(meth):
-                    if char in ['H', 'X','x','h']:
-                        quad_dict_store(quad_dict_Non_CpG, matched_bc, f'{chrom}_{chrom_pos[i]+1}_{context_conversion[char]}')
-                    elif char in ['z','Z']:
-                        quad_dict_store(quad_dict_CpG, matched_bc, f'{chrom}_{chrom_pos[i]+1}_{char}')
+                    if char in ["H", "X", "x", "h"]:
+                        quad_dict_store(
+                            quad_dict_Non_CpG,
+                            matched_bc,
+                            f"{chrom}_{chrom_pos[i]+1}_{context_conversion[char]}",
+                        )
+                    elif char in ["z", "Z"]:
+                        quad_dict_store(
+                            quad_dict_CpG,
+                            matched_bc,
+                            f"{chrom}_{chrom_pos[i]+1}_{char}",
+                        )
             else:
-                total_failed_reads += 1 
-        
+                total_failed_reads += 1
+
         if total_reads % N_interval_log == 0:
             elapsed_time = time.time() - start_time
             print(f"Processed {total_reads} reads in {elapsed_time:.2f} seconds.")
-        
+
         if total_reads > N_read_extract and limit:
             break
-                
 
     print("total bc fail reads = ", total_failed_reads, "total reads = ", total_reads)
-    
-    context = 'Non_CpG_context'
+
+    context = "Non_CpG_context"
     for j in range(sub_batch_N):
         batch = str(j + 1).zfill(3)
         batch_json = f"{dir_split}/quads_part_{part}_batch_{batch}_{context}.json"
@@ -648,7 +647,7 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
         with open(batch_json, "w") as json_file:
             json.dump(sub_agg, json_file)
 
-    context = 'CpG_context'
+    context = "CpG_context"
     for j in range(sub_batch_N):
         batch = str(j + 1).zfill(3)
         batch_json = f"{dir_split}/quads_part_{part}_batch_{batch}_{context}.json"
@@ -659,34 +658,36 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
 
         with open(batch_json, "w") as json_file:
             json.dump(sub_agg, json_file)
-    
+
     R1_meth_df = quality_df(R1_meth_dict)
     R2_meth_df = quality_df(R2_meth_dict)
-    
-    
+
     R1_meth_df.to_csv(bias_meth_file.replace("_bias_", "_R1_"), index=None)
     R2_meth_df.to_csv(bias_meth_file.replace("_bias_", "_R2_"), index=None)
 
     all_dfs = []
-    for r, df in enumerate([R1_meth_df,R2_meth_df]):
-
-        for context in ['X','Z','H']:
-            h_count = df[df.quantity.isin([context.lower(),context])].groupby('position').sum()
-            h_count_meth = df[df.quantity==context].groupby('position').sum()
+    for r, df in enumerate([R1_meth_df, R2_meth_df]):
+        for context in ["X", "Z", "H"]:
+            h_count = (
+                df[df.quantity.isin([context.lower(), context])]
+                .groupby("position")
+                .sum()
+            )
+            h_count_meth = df[df.quantity == context].groupby("position").sum()
 
             meth_frac = h_count_meth.total_cnt / h_count.total_cnt
             meth_frac = meth_frac.reset_index()
 
-            meth_frac['read'] = f'{r+1}_{context}'
+            meth_frac["read"] = f"{r+1}_{context}"
 
             all_dfs.append(meth_frac)
 
     all_dfs = pd.concat(all_dfs)
     all_dfs = all_dfs.reset_index()
-    all_dfs.total_cnt = all_dfs.total_cnt*100
-    
+    all_dfs.total_cnt = all_dfs.total_cnt * 100
+
     all_dfs.to_csv(bias_meth_file.replace("_R1_", "_bias_"), index=None)
-            
+
 
 def aggregate_quad_parts(indir, sample, batch, context):
     dir_split = f"{indir}/{sample}/split"
@@ -695,7 +696,7 @@ def aggregate_quad_parts(indir, sample, batch, context):
     batch_jsons = sorted([f for f in files if batch_pattern in f])
 
     agg_batch_json_file = f"{dir_split}/quad_agg_{batch}_{context}.json"
-    
+
     if os.path.isfile(agg_batch_json_file):
         print(agg_batch_json_file, " exists, skip")
         return
@@ -715,7 +716,7 @@ def aggregate_quad_parts(indir, sample, batch, context):
     with open(agg_batch_json_file, "w") as json_file:
         json.dump(data_agg, json_file)
 
-        
+
 def write_mtx(indir, sample, batch, window, context, state, csr):
     window_mtx_dir = f"{indir}/{sample}/counts_w_{window}_m{context}"
 
@@ -753,7 +754,7 @@ def make_count_sparse_mtx_batch_windows(
     dir_split = f"{indir}/{sample}/split"
     agg_batch_json_file = f"{dir_split}/quad_agg_{batch}_{context}.json"
     # agg_batch_json_file = f"{dir_split}/quads_part_001_batch_{batch}.json"
-    
+
     window_mtx_dir = f"{indir}/{sample}/counts_w_{window}_m{context}"
     csr_file = f"{window_mtx_dir}/b_{batch}_score.mtx.gz"
 
@@ -777,10 +778,9 @@ def make_count_sparse_mtx_batch_windows(
     batch_bcs = list(data_sub.keys())
 
     for idx, bc in enumerate(batch_bcs):
-        
         total_bases = len(data_sub[bc])
-        
-        print(f'total_bases for barcode {bc} = {total_bases}', flush=True)
+
+        print(f"total_bases for barcode {bc} = {total_bases}", flush=True)
         if total_bases < 1000:
             continue
 
@@ -797,9 +797,8 @@ def make_count_sparse_mtx_batch_windows(
 
         triplets = [d.split("_") for d in dedup.keys()]
         triplets = pd.DataFrame(triplets)
-        
-        
-        print(f'deduped bases for barcode {bc} = {triplets.shape}', flush=True)
+
+        print(f"deduped bases for barcode {bc} = {triplets.shape}", flush=True)
 
         triplets[1] = triplets[1].astype("int")
         triplets[3] = (
