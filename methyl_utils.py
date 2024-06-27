@@ -695,7 +695,7 @@ def aggregate_quad_parts(indir, sample, batch, context):
     batch_jsons = sorted([f for f in files if batch_pattern in f])
 
     agg_batch_json_file = f"{dir_split}/quad_agg_{batch}_{context}.json"
-
+    
     if os.path.isfile(agg_batch_json_file):
         print(agg_batch_json_file, " exists, skip")
         return
@@ -715,7 +715,7 @@ def aggregate_quad_parts(indir, sample, batch, context):
     with open(agg_batch_json_file, "w") as json_file:
         json.dump(data_agg, json_file)
 
-
+        
 def write_mtx(indir, sample, batch, window, context, state, csr):
     window_mtx_dir = f"{indir}/{sample}/counts_w_{window}_m{context}"
 
@@ -751,13 +751,10 @@ def make_count_sparse_mtx_batch_windows(
     indir, sample, batch, window, chr_idx_dict, context
 ):
     dir_split = f"{indir}/{sample}/split"
-
     agg_batch_json_file = f"{dir_split}/quad_agg_{batch}_{context}.json"
-
     # agg_batch_json_file = f"{dir_split}/quads_part_001_batch_{batch}.json"
-
+    
     window_mtx_dir = f"{indir}/{sample}/counts_w_{window}_m{context}"
-
     csr_file = f"{window_mtx_dir}/b_{batch}_score.mtx.gz"
 
     if os.path.isfile(csr_file):
@@ -779,8 +776,12 @@ def make_count_sparse_mtx_batch_windows(
 
     batch_bcs = list(data_sub.keys())
 
-    for idx, bc in enumerate(tqdm(batch_bcs)):
-        if len(data_sub[bc]) == 0:
+    for idx, bc in enumerate(batch_bcs):
+        
+        total_bases = len(data_sub[bc])
+        
+        print(f'total_bases for barcode {bc} = {total_bases}', flush=True)
+        if total_bases < 1000:
             continue
 
         # convert ['chr_100', 'Z'] to ['chr_100_Z'] and count dedup
@@ -796,6 +797,9 @@ def make_count_sparse_mtx_batch_windows(
 
         triplets = [d.split("_") for d in dedup.keys()]
         triplets = pd.DataFrame(triplets)
+        
+        
+        print(f'deduped bases for barcode {bc} = {triplets.shape}', flush=True)
 
         triplets[1] = triplets[1].astype("int")
         triplets[3] = (
