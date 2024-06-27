@@ -32,13 +32,13 @@ pool.close()
 pool.join()
 """
 
-args = [(indir, sample, part, sub_batch_N, limit) for part in parts[:1]]
+args = [(indir, sample, part, limit) for part in parts]
 pool = Pool(int(cores))
 results = pool.starmap(methyl_utils.save_quad_batch_from_bam, args)
 pool.close()
 pool.join()
 
-"""
+
 ######################################################
 
 args = [
@@ -83,4 +83,5 @@ pool.close()
 pool.join()
 
 ######################################################
+"""
 """
