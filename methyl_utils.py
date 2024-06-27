@@ -17,8 +17,10 @@ from scipy.sparse import vstack
 import concurrent.futures
 from anndata import AnnData
 import scanpy as sc
+import time
 
-N_read_extract = 5000
+N_read_extract = 10000  # maximum reads for limited moded in testing
+N_interval_log = 2e5  # interval for logging
 
 print(N_read_extract)
 
@@ -570,6 +572,8 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
     bam = pysam.AlignmentFile(bam_file, 'r')
     total_reads = 0
     
+    start_time = time.time()
+
     for read in bam.fetch(until_eof=True):
 
         total_reads += 1
@@ -621,6 +625,10 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
                         quad_dict_store(quad_dict_CpG, matched_bc, f'{chrom}_{chrom_pos[i]+1}_{char}')
             else:
                 total_failed_reads += 1 
+        
+        if total_reads % N_interval_log == 0:
+            elapsed_time = time.time() - start_time
+            print(f"Processed {total_reads} reads in {elapsed_time:.2f} seconds.")
         
         if total_reads > N_read_extract and limit:
             break
