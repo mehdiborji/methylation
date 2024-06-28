@@ -289,11 +289,11 @@ def tag_bam_with_barcodes(indir, sample, part, limit):
         print(sam_tag, " exists, skip")
         return
 
-    samfile = pysam.AlignmentFile(sam, "rb", threads=8)
-    tagged_bam = pysam.AlignmentFile(sam_tag, "wb", template=samfile, threads=8)
+    samfile = pysam.AlignmentFile(sam, "rb")
+    tagged_bam = pysam.AlignmentFile(sam_tag, "wb", template=samfile)
 
     i = 0
-    for read in tqdm(samfile.fetch(until_eof=True)):
+    for read in tqdm(samfile.fetch(until_eof=True), mininterval=2):
         i += 1
         raw_barcode = read.qname.split("_")[-1]
         if raw_barcode in raw_to_tenx:
@@ -761,9 +761,14 @@ def make_count_sparse_mtx_batch_windows(
     if os.path.isfile(csr_file):
         print(csr_file, " exists, skip")
         return
-
+    
+    start_time = time.time()
+    
     with open(agg_batch_json_file, "r") as json_file:
         data_sub = json.load(json_file)
+        
+    elapsed = time.time() - start_time
+    print(f"opened {agg_batch_json_file} after {elapsed:.2f}s", flush=True)
 
     rows_idx = []
     cols_idx = []
@@ -780,7 +785,9 @@ def make_count_sparse_mtx_batch_windows(
     for idx, bc in enumerate(batch_bcs):
         total_bases = len(data_sub[bc])
 
-        print(f"total_bases for barcode {bc} = {total_bases}", flush=True)
+        elapsed = time.time() - start_time
+        print(f"total_bases for {bc} = {total_bases} in {elapsed:.2f}s", flush=True)
+        
         if total_bases < 1000:
             continue
 
@@ -798,7 +805,8 @@ def make_count_sparse_mtx_batch_windows(
         triplets = [d.split("_") for d in dedup.keys()]
         triplets = pd.DataFrame(triplets)
 
-        print(f"deduped bases for barcode {bc} = {triplets.shape}", flush=True)
+        elapsed = time.time() - start_time
+        print(f"deduped bases for {bc} = {triplets.shape[0]} in {elapsed:.2f}s", flush=True)
 
         triplets[1] = triplets[1].astype("int")
         triplets[3] = (
@@ -829,7 +837,10 @@ def make_count_sparse_mtx_batch_windows(
             1 - cell_mC_ratio
         )
         diff_neg = mrg[(mrg["diff"] < 0) & (mrg["cov"] > 1)]["diff"] / cell_mC_ratio
-
+        
+        elapsed = time.time() - start_time
+        print(f"dataframes built in {elapsed:.2f}s", flush=True)
+        
         row_vals = (np.ones(len(mrg), dtype=int) * idx).tolist()
         col_vals = [chr_idx_dict[key] for key in mrg.index]
 
@@ -845,7 +856,10 @@ def make_count_sparse_mtx_batch_windows(
             rows_idx_score.extend(row_vals)  # cells
             cols_idx_score.extend(col_vals)  # genes
             row_col_values_score.extend(diff.tolist())
-
+            
+        elapsed = time.time() - start_time
+        print(f"all matrices built in {elapsed:.2f}s", flush=True)
+        
     shape = (len(batch_bcs), len(chr_idx_dict))
 
     csr = csr_matrix(
@@ -866,6 +880,9 @@ def make_count_sparse_mtx_batch_windows(
         dtype="float32",
     )
     write_mtx(indir, sample, batch, window, context, "score", csr)
+    
+    elapsed = time.time() - start_time
+    print(f"all matrices saved in {elapsed:.2f}s", flush=True)
 
 
 def load_mtx(file):
@@ -873,18 +890,23 @@ def load_mtx(file):
 
 
 def stack_mtx(indir, sample, window, chr_idx_dict, context, cores):
-    bcs = pd.read_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
+    
+    with open(f"{indir}/{sample}/{sample}_whitelist_batches.json", "r") as file:
+        bc_splits = json.load(file)
+
+    all_bcs_list = []
+    for b in bc_splits: all_bcs_list.extend(b)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=cores) as executor:
         mtx_folder = f"{indir}/{sample}/counts_w_{window}_m{context}"
         chr_idx_string = [idx[0] + "_" + str(idx[1]) for idx in chr_idx_dict.keys()]
-        print("chr_idx_dict lenght = ", len(chr_idx_dict), window, context)
+        print("chr_idx_dict lenght = ", len(chr_idx_dict), window, context, flush=True)
 
         for mtx_type in ["notmeth", "meth", "score"]:
             adata_file = f"{mtx_folder}/adata_{mtx_type}.h5ad"
 
             if os.path.isfile(adata_file):
-                print(adata_file, " exists, skip")
+                print(adata_file, " exists, skip", flush=True)
                 continue
 
             files = os.listdir(mtx_folder)
@@ -892,27 +914,27 @@ def stack_mtx(indir, sample, window, chr_idx_dict, context, cores):
             file_pattern = f"_{mtx_type}.mtx.gz"
             files = sorted([f"{mtx_folder}/{f}" for f in files if file_pattern in f])
             print(files[0])
-            print("load all mtx")
+            print("load all mtx", flush=True)
 
             all_mtx = list(executor.map(load_mtx, files))
 
-            print("stacking")
+            print("stacking", flush=True)
             merged_matrix = vstack(all_mtx)
             merged_matrix = csr_matrix(merged_matrix, dtype="float32")
-            print("AnnData making")
+            print("AnnData making", flush=True)
             adata = AnnData(merged_matrix)
-            adata.obs.index = bcs.bc
+            adata.obs.index = all_bcs_list
             adata.var.index = chr_idx_string
-            print("AnnData writing")
+            print("AnnData writing", flush=True)
             adata.write_h5ad(adata_file, compression="gzip")
 
         coverage_adata_file = f"{mtx_folder}/adata_coverage.h5ad"
 
         if os.path.isfile(coverage_adata_file):
-            print(coverage_adata_file, " exists, skip")
+            print(coverage_adata_file, " exists, skip", flush=True)
             pass
         else:
-            print(coverage_adata_file, " will be made")
+            print(coverage_adata_file, " will be made", flush=True)
 
             adatas = []
             for mtx_type in ["notmeth", "meth"]:
@@ -955,3 +977,7 @@ def Mbias_parser(Mbias_filename):
         ]
 
         result_df.to_csv(Mbias_filename.replace(".txt", ".csv"))
+
+sam =f'{indir}/{sample}/{sample}_markdup.bam'
+samfile = pysam.AlignmentFile(sam, 'rb',threads=8)
+
