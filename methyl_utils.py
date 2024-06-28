@@ -307,6 +307,45 @@ def tag_bam_with_barcodes(indir, sample, part, limit):
     tagged_bam.close()
     samfile.close()
 
+def compute_dup_rate(indir, sample, limit):
+    
+    N_interval_log = 1e6
+    sam =f'{indir}/{sample}/{sample}_markdup.bam'
+    samfile = pysam.AlignmentFile(sam, 'rb',threads=2)
+    
+    BC_dup_count = {}
+    BC_unique_count = {}
+    
+    start_time = time.time()
+    
+    total_reads = 0
+    
+    for read in samfile.fetch(until_eof=True):
+        total_reads += 1;
+        bc = read.get_tag('CB')
+        if read.is_duplicate:
+            seq_counter(BC_dup_count,bc)
+        else:
+            seq_counter(BC_unique_count,bc)
+
+        if total_reads % N_interval_log == 0:
+            elapsed_time = time.time() - start_time
+            print(f"Processed {total_reads} reads in {elapsed_time:.2f} seconds.")
+        if total_reads > N_read_extract and limit:
+            break
+    samfile.close()
+
+    BC_dup_df = pd.Series(BC_dup_count)
+    BC_uni_df = pd.Series(BC_unique_count)
+    BC_dup_df.name = 'dup_cnt'
+    BC_uni_df.name = 'uniq_cnt'
+    mrg = pd.merge(BC_uni_df, BC_dup_df, how='outer', left_index=True, right_index=True)
+    mrg['total_cnt'] = mrg.sum(axis=1)
+    mrg['dup_rate'] = mrg.total_cnt/mrg.uniq_cnt
+    mrg['log10cnt'] = np.log10(mrg.total_cnt)
+    mrg['log10cnt_uniq'] = np.log10(mrg.uniq_cnt)
+    mrg.to_csv(f'{indir}/{sample}/{sample}_dup_rate.csv')
+
 
 def aggregate_bc_dicts(indir, sample):
     dir_split = f"{indir}/{sample}/split/"
