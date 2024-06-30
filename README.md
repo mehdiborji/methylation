@@ -79,8 +79,14 @@ sbatch ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 ```
 
+
+
+
 - For very large datasets we split the pipeline into pieces and submit them as array jobs:
+
+
 This is an array job `SLURM_ARRAY_TASK_ID` is embedded as an input argument to `save_quad_batch.py`. Each  which subsequently splits the parts into batches of 12 and processess them in pools of two using 2 cores. `TASK_ID` will determine which 12-part batch of parts the task will process. `TASK_ID` 1 will process parts `000` to `011`, `TASK_ID` 4 will process parts `036` to `047` and so on.
+
 ```
 sbatch ~/methylation/scripts/SLURM_save_quad_batch.sh \
         /n/scratch/users/m/meb521/xBO140_nova \
@@ -94,6 +100,10 @@ sbatch ~/methylation/scripts/SLURM_aggregate_quad_parts.sh \
         CpG_context
 ```
 
+
+
+- To Build count matrices from batches, we first make matrix from each batch and then stack them
+
 ```
 sbatch ~/methylation/scripts/SLURM_make_count_mtx.sh \
         /n/scratch/users/m/meb521/xBO140_nova \
@@ -101,4 +111,30 @@ sbatch ~/methylation/scripts/SLURM_make_count_mtx.sh \
         100000 \
         Non_CpG_context \
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
+```
+
+```
+sbatch ~/methylation/scripts/SLURM_stack_mtx.sh \
+        /n/scratch/users/m/meb521/xBO140_nova \
+        xBO140_novaseq \
+        100000 \
+        CpG_context \
+        ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
+```
+
+
+
+- To Build final bam with duplications and barcodes marked
+We first tag them
+```
+sbatch ~/methylation/scripts/SLURM_tag_bam_parts.sh \
+        /n/scratch/users/m/meb521/xBO140_nova \
+        xBO140_novaseq
+```
+
+After tagging all bam parts we can aggregate and mark duplicates using the following:
+```
+sbatch ~/methylation/scripts/bam_merge.sh \
+        /n/scratch/users/m/meb521/xBO140_nova \
+        xBO140_novaseq
 ```
