@@ -19,8 +19,8 @@ from anndata import AnnData
 import scanpy as sc
 import time
 
-N_read_extract = 10000  # maximum reads for limited moded in testing
-N_interval_log = 2e5  # interval for logging
+N_read_extract = 5e5  # maximum reads for limited moded in testing
+N_interval_log = 1e5  # interval for logging
 
 print(N_read_extract)
 
@@ -307,11 +307,11 @@ def tag_bam_with_barcodes(indir, sample, part, limit):
     tagged_bam.close()
     samfile.close()
 
-def compute_dup_rate(indir, sample, limit):
+def compute_dup_rate(indir, sample, chrom, limit):
     
     N_interval_log = 1e6
     sam =f'{indir}/{sample}/{sample}_markdup.bam'
-    samfile = pysam.AlignmentFile(sam, 'rb',threads=2)
+    samfile = pysam.AlignmentFile(sam, 'rb')
     
     BC_dup_count = {}
     BC_unique_count = {}
@@ -320,7 +320,7 @@ def compute_dup_rate(indir, sample, limit):
     
     total_reads = 0
     
-    for read in samfile.fetch(until_eof=True):
+    for read in samfile.fetch(chrom):
         total_reads += 1;
         bc = read.get_tag('CB')
         if read.is_duplicate:
@@ -330,7 +330,7 @@ def compute_dup_rate(indir, sample, limit):
 
         if total_reads % N_interval_log == 0:
             elapsed_time = time.time() - start_time
-            print(f"Processed {total_reads} reads in {elapsed_time:.2f} seconds.")
+            print(f"Processed {total_reads} reads of {chrom} in {elapsed_time:.2f}s", flush=True)
         if total_reads > N_read_extract and limit:
             break
     samfile.close()
@@ -344,7 +344,7 @@ def compute_dup_rate(indir, sample, limit):
     mrg['dup_rate'] = mrg.total_cnt/mrg.uniq_cnt
     mrg['log10cnt'] = np.log10(mrg.total_cnt)
     mrg['log10cnt_uniq'] = np.log10(mrg.uniq_cnt)
-    mrg.to_csv(f'{indir}/{sample}/{sample}_dup_rate.csv')
+    mrg.to_csv(f'{indir}/{sample}/{sample}_dup_rate_{chrom}.csv')
 
 
 def aggregate_bc_dicts(indir, sample):
@@ -1016,7 +1016,3 @@ def Mbias_parser(Mbias_filename):
         ]
 
         result_df.to_csv(Mbias_filename.replace(".txt", ".csv"))
-
-sam =f'{indir}/{sample}/{sample}_markdup.bam'
-samfile = pysam.AlignmentFile(sam, 'rb',threads=8)
-
