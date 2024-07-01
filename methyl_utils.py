@@ -307,44 +307,47 @@ def tag_bam_with_barcodes(indir, sample, part, limit):
     tagged_bam.close()
     samfile.close()
 
+
 def compute_dup_rate(indir, sample, chrom, limit):
-    
     N_interval_log = 1e6
-    sam =f'{indir}/{sample}/{sample}_markdup.bam'
-    samfile = pysam.AlignmentFile(sam, 'rb')
-    
+    sam = f"{indir}/{sample}/{sample}_markdup.bam"
+    samfile = pysam.AlignmentFile(sam, "rb")
+
     BC_dup_count = {}
     BC_unique_count = {}
-    
+
     start_time = time.time()
-    
+
     total_reads = 0
-    
+
     for read in samfile.fetch(chrom):
-        total_reads += 1;
-        bc = read.get_tag('CB')
+        total_reads += 1
+        bc = read.get_tag("CB")
         if read.is_duplicate:
-            seq_counter(BC_dup_count,bc)
+            seq_counter(BC_dup_count, bc)
         else:
-            seq_counter(BC_unique_count,bc)
+            seq_counter(BC_unique_count, bc)
 
         if total_reads % N_interval_log == 0:
             elapsed_time = time.time() - start_time
-            print(f"Processed {total_reads} reads of {chrom} in {elapsed_time:.2f}s", flush=True)
+            print(
+                f"Processed {total_reads} reads of {chrom} in {elapsed_time:.2f}s",
+                flush=True,
+            )
         if total_reads > N_read_extract and limit:
             break
     samfile.close()
 
     BC_dup_df = pd.Series(BC_dup_count)
     BC_uni_df = pd.Series(BC_unique_count)
-    BC_dup_df.name = 'dup_cnt'
-    BC_uni_df.name = 'uniq_cnt'
-    mrg = pd.merge(BC_uni_df, BC_dup_df, how='outer', left_index=True, right_index=True)
-    mrg['total_cnt'] = mrg.sum(axis=1)
-    mrg['dup_rate'] = mrg.total_cnt/mrg.uniq_cnt
-    mrg['log10cnt'] = np.log10(mrg.total_cnt)
-    mrg['log10cnt_uniq'] = np.log10(mrg.uniq_cnt)
-    mrg.to_csv(f'{indir}/{sample}/{sample}_dup_rate_{chrom}.csv')
+    BC_dup_df.name = "dup_cnt"
+    BC_uni_df.name = "uniq_cnt"
+    mrg = pd.merge(BC_uni_df, BC_dup_df, how="outer", left_index=True, right_index=True)
+    mrg["total_cnt"] = mrg.sum(axis=1)
+    mrg["dup_rate"] = mrg.total_cnt / mrg.uniq_cnt
+    mrg["log10cnt"] = np.log10(mrg.total_cnt)
+    mrg["log10cnt_uniq"] = np.log10(mrg.uniq_cnt)
+    mrg.to_csv(f"{indir}/{sample}/{sample}_dup_rate_{chrom}.csv")
 
 
 def aggregate_bc_dicts(indir, sample):
@@ -763,8 +766,8 @@ def write_mtx(indir, sample, batch, window, context, state, csr):
         try:
             os.makedirs(window_mtx_dir)
             print(f"{window_mtx_dir} created")
-        except:
-            print(f"{window_mtx_dir} already created")
+        except Exception as e:
+            print(f"A {e} occurred, {window_mtx_dir} have already been created")
     else:
         print(f"{window_mtx_dir} already exists")
 
@@ -800,12 +803,12 @@ def make_count_sparse_mtx_batch_windows(
     if os.path.isfile(csr_file):
         print(csr_file, " exists, skip")
         return
-    
+
     start_time = time.time()
-    
+
     with open(agg_batch_json_file, "r") as json_file:
         data_sub = json.load(json_file)
-        
+
     elapsed = time.time() - start_time
     print(f"opened {agg_batch_json_file} after {elapsed:.2f}s", flush=True)
 
@@ -826,7 +829,7 @@ def make_count_sparse_mtx_batch_windows(
 
         elapsed = time.time() - start_time
         print(f"total_bases for {bc} = {total_bases} in {elapsed:.2f}s", flush=True)
-        
+
         if total_bases < 1000:
             continue
 
@@ -845,7 +848,10 @@ def make_count_sparse_mtx_batch_windows(
         triplets = pd.DataFrame(triplets)
 
         elapsed = time.time() - start_time
-        print(f"deduped bases for {bc} = {triplets.shape[0]} in {elapsed:.2f}s", flush=True)
+        print(
+            f"deduped bases for {bc} = {triplets.shape[0]} in {elapsed:.2f}s",
+            flush=True,
+        )
 
         triplets[1] = triplets[1].astype("int")
         triplets[3] = (
@@ -876,10 +882,10 @@ def make_count_sparse_mtx_batch_windows(
             1 - cell_mC_ratio
         )
         diff_neg = mrg[(mrg["diff"] < 0) & (mrg["cov"] > 1)]["diff"] / cell_mC_ratio
-        
+
         elapsed = time.time() - start_time
         print(f"dataframes built in {elapsed:.2f}s", flush=True)
-        
+
         row_vals = (np.ones(len(mrg), dtype=int) * idx).tolist()
         col_vals = [chr_idx_dict[key] for key in mrg.index]
 
@@ -895,10 +901,10 @@ def make_count_sparse_mtx_batch_windows(
             rows_idx_score.extend(row_vals)  # cells
             cols_idx_score.extend(col_vals)  # genes
             row_col_values_score.extend(diff.tolist())
-            
+
         elapsed = time.time() - start_time
         print(f"all matrices built in {elapsed:.2f}s", flush=True)
-        
+
     shape = (len(batch_bcs), len(chr_idx_dict))
 
     csr = csr_matrix(
@@ -919,7 +925,7 @@ def make_count_sparse_mtx_batch_windows(
         dtype="float32",
     )
     write_mtx(indir, sample, batch, window, context, "score", csr)
-    
+
     elapsed = time.time() - start_time
     print(f"all matrices saved in {elapsed:.2f}s", flush=True)
 
@@ -929,12 +935,12 @@ def load_mtx(file):
 
 
 def stack_mtx(indir, sample, window, chr_idx_dict, context, cores):
-    
     with open(f"{indir}/{sample}/{sample}_whitelist_batches.json", "r") as file:
         bc_splits = json.load(file)
 
     all_bcs_list = []
-    for b in bc_splits: all_bcs_list.extend(b)
+    for b in bc_splits:
+        all_bcs_list.extend(b)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=cores) as executor:
         mtx_folder = f"{indir}/{sample}/counts_w_{window}_m{context}"
