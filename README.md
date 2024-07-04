@@ -21,13 +21,27 @@ For example:
 The following script wraps the `methyl_fastq_pipeline.py` into a SLURM job with two input variables required for input:
 `input_directory` and `sample_name`
 ```
-~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/methyl_seq/nextseq xBO87_ATAC_S1
+~/methylation/scripts/SLURM_fastq_pipeline.sh \
+        /n/scratch/users/m/meb521/methyl_seq/nextseq \
+        xBO87_ATAC_S1
 ```
 Other examples submitted with sbatch
 ```
-sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/xBO140/fastqs xBO140a_S1
-sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/xBO140_nova xBO140_novaseq
-sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/xBO153 xBO153_ATAC_240606_S1
+sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh \
+        /n/scratch/users/m/meb521/xBO140/fastqs \
+        xBO140a_S1
+```
+
+```
+sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh \
+        /n/scratch/users/m/meb521/xBO140_nova \
+        xBO140_novaseq
+```
+
+```
+sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh \
+        /n/scratch/users/m/meb521/xBO153 \
+        xBO153_ATAC_240606_S1
 ```
 
 The pipeline currently is harcoded with the assumption that R2 is 24nt long and has 8nt of splint adapter CAGACGCG at the beginning and reverse compliment of 10x ATAC barcodes from 9-24. It is also harcoded to clip first 11nt and last 2nt of R1 first 2nt and last 2nt of R3 reads. These options can be modified by modifying `extract_clean_fastq` function within `methyl_utils.py` script
@@ -60,9 +74,12 @@ find . -type f -name 'methylation_extractor_job_*' -exec tail -n 1 {} \;
 Required arguments are window_size for binning, context which can be two values `Non_CpG_context` and `CpG_context` and fasta index of the reference used in alignment two such indices are available in data folder human `GRCh38_v44_chrs.fasta` and mouse `GRCm39_v34_allcontigs.fasta.fai`
 
 ```
-~/methylation/scripts/SLURM_bam_mtx_pipeline.sh /n/scratch/users/m/meb521/methyl_seq/nextseq xBO87_ATAC_S1 50000 
-
-~/methylation/scripts/SLURM_bam_mtx_pipeline.sh /n/scratch/users/m/meb521/xBO140/fastqs xBO140a_S1 100000 Non_CpG_context ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
+~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
+        /n/scratch/users/m/meb521/xBO140/fastqs \
+        xBO140a_S1 \
+        100000 \
+        Non_CpG_context \
+        ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 
 sbatch ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
         /n/scratch/users/m/meb521/xBO140/fastqs \
@@ -70,7 +87,9 @@ sbatch ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
         200000 \
         CpG_context \
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
-        
+```
+
+```
 sbatch ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
         /n/scratch/users/m/meb521/xBO140_nova \
         xBO140_novaseq \
@@ -102,8 +121,12 @@ sbatch ~/methylation/scripts/SLURM_aggregate_quad_parts.sh \
 
 
 
-- To Build count matrices from batches, we first make matrix from each batch and then stack them
+- To build count matrices from batches, we first make matrix from each batch and then stack them
 
+First we make count matrix from methylation calls for barcodes in each batch. For each context and window size three different matices are built:
+z-scored methylation levels
+counts of methylated bases
+counts of nonmethylated bases
 ```
 sbatch ~/methylation/scripts/SLURM_make_count_mtx.sh \
         /n/scratch/users/m/meb521/xBO140_nova \
@@ -113,6 +136,7 @@ sbatch ~/methylation/scripts/SLURM_make_count_mtx.sh \
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 ```
 
+Then we stack all count matricies to make one set of final matrices for each of three in above, we also make coverage matrix, these final matrices are stored in AnnData format.
 ```
 sbatch ~/methylation/scripts/SLURM_stack_mtx.sh \
         /n/scratch/users/m/meb521/xBO140_nova \
@@ -124,8 +148,8 @@ sbatch ~/methylation/scripts/SLURM_stack_mtx.sh \
 
 
 
-- To Build final bam with duplications and barcodes marked
-We first tag them
+- To build final bam with duplications and barcodes marked
+We first add barcode tag into each part and filter out all reads and did not match to whitelist:
 ```
 sbatch ~/methylation/scripts/SLURM_tag_bam_parts.sh \
         /n/scratch/users/m/meb521/xBO140_nova \
@@ -137,4 +161,12 @@ After tagging all bam parts we can aggregate and mark duplicates using the follo
 sbatch ~/methylation/scripts/bam_merge.sh \
         /n/scratch/users/m/meb521/xBO140_nova \
         xBO140_novaseq
+```
+Finally we can compute statistics from the entire bam. We do this in a per chromosome level and in parallel:
+```
+sbatch ~/methylation/scripts/SLURM_compute_bam.sh \
+        /n/scratch/users/m/meb521/xBO140_nova \
+        xBO140_novaseq
+        ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
+        
 ```
