@@ -929,6 +929,153 @@ def make_count_sparse_mtx_batch_windows(
     elapsed = time.time() - start_time
     print(f"all matrices saved in {elapsed:.2f}s", flush=True)
 
+def make_count_sparse_mtx_batch_genes(indir, sample, batch, gencode, context):
+    dir_split = f"{indir}/{sample}/split"
+    agg_batch_json_file = f"{dir_split}/quad_agg_{batch}_{context}.json"
+    
+    df_gtf_genes = pd.read_csv('data/gencode.vM35.csv.gz')#,index_col=3)
+    bed_genes = pybedtools.BedTool.from_dataframe(df_gtf_genes)
+    
+    gene_idx_map = dict(zip(df_gtf_genes['gene_id'],df_gtf_genes.index))
+
+    gene_mtx_dir = f"{indir}/{sample}/counts_gene_m{context}"
+    csr_file = f"{gene_mtx_dir}/b_{batch}_score.mtx.gz"
+
+    if os.path.isfile(csr_file):
+        print(csr_file, " exists, skip")
+        return
+
+    start_time = time.time()
+
+    with open(agg_batch_json_file, "r") as json_file:
+        data_sub = json.load(json_file)
+
+    elapsed = time.time() - start_time
+    print(f"opened {agg_batch_json_file} after {elapsed:.2f}s", flush=True)
+
+    rows_idx = []
+    cols_idx = []
+
+    row_col_values_meth = []
+    row_col_values_notmeth = []
+
+    rows_idx_score = []
+    cols_idx_score = []
+    row_col_values_score = []
+
+    batch_bcs = list(data_sub.keys())
+
+    for idx, bc in enumerate(batch_bcs):
+        total_bases = len(data_sub[bc])
+
+        elapsed = time.time() - start_time
+        print(f"total_bases for {bc} = {total_bases} in {elapsed:.2f}s", flush=True)
+
+        if total_bases < 1000:
+            continue
+
+        # convert ['chr_100', 'Z'] to ['chr_100_Z'] and count dedup
+        # maybe save this stats later
+        # one call also do this in aggregate_quad_parts
+
+        dedup = {}
+
+        for b in data_sub[bc]:
+            seq_counter(dedup, b)
+
+        # convert back to ['chr', '100', 'Z'] format
+
+        triplets = [d.split("_") for d in dedup.keys()]
+        triplets = pd.DataFrame(triplets)
+
+        elapsed = time.time() - start_time
+        print(
+            f"deduped bases for {bc} = {triplets.shape[0]} in {elapsed:.2f}s",
+            flush=True,
+        )
+
+        triplets[3] = triplets[1]
+        triplets = triplets[[0,1,3,2]].copy()
+        triplets = triplets[triplets[0].str.contains('chr')].copy()
+        bed_bases = pybedtools.BedTool.from_dataframe(triplets)
+        
+        overlaps_bed = bed_bases.intersect(bed_genes, wb=True)
+        df = overlaps_bed.to_dataframe()
+        df = df[['thickEnd','name']].copy()
+        df.columns = ['gene_id','meth']
+        Z_cnt = df[df.meth=='Z'].groupby('gene_id').size()
+        z_cnt = df[df.meth=='z'].groupby('gene_id').size()
+
+        Z_cnt.name = "Z_cnt"
+        z_cnt.name = "z_cnt"
+
+        mrg = pd.merge(Z_cnt, z_cnt, how="outer", left_index=True, right_index=True)
+        mrg = mrg.fillna(0)
+        cell_mC = mrg.sum()
+
+        mrg["cov"] = mrg.sum(axis=1)
+
+        cell_mC_ratio = cell_mC.loc["Z_cnt"] / (
+            cell_mC.loc["Z_cnt"] + cell_mC.loc["z_cnt"]
+        )
+        # mrg['meth'] = mrg.Z_cnt / mrg['cov']
+        # mrg['ratio'] = mrg['meth'] / cell_mC_ratio
+        mrg["diff"] = mrg.Z_cnt / mrg["cov"] - cell_mC_ratio
+
+        diff_pos = mrg[(mrg["diff"] > 0) & (mrg["cov"] > 1)]["diff"] / (
+            1 - cell_mC_ratio
+        )
+        diff_neg = mrg[(mrg["diff"] < 0) & (mrg["cov"] > 1)]["diff"] / cell_mC_ratio
+
+        elapsed = time.time() - start_time
+        print(f"dataframes built in {elapsed:.2f}s", flush=True)
+
+        row_vals = (np.ones(len(mrg), dtype=int) * idx).tolist()
+        
+        col_vals = [gene_idx_map[key] for key in mrg.index]
+        #col_vals = [chr_idx_dict[key] for key in mrg.index]
+
+        rows_idx.extend(row_vals)  # cells
+        cols_idx.extend(col_vals)  # genes
+
+        row_col_values_meth.extend(mrg["Z_cnt"].tolist())
+        row_col_values_notmeth.extend(mrg["z_cnt"].tolist())
+
+        for diff in [diff_pos, diff_neg]:
+            row_vals = (np.ones(len(diff), dtype=int) * idx).tolist()
+            col_vals = [gene_idx_map[key] for key in diff.index]
+            rows_idx_score.extend(row_vals)  # cells
+            cols_idx_score.extend(col_vals)  # genes
+            row_col_values_score.extend(diff.tolist())
+
+        elapsed = time.time() - start_time
+        print(f"all matrices built in {elapsed:.2f}s", flush=True)
+
+    shape = (len(batch_bcs), len(gene_idx_map))
+
+    csr = csr_matrix(
+        (row_col_values_meth, (rows_idx, cols_idx)), shape=shape, dtype="float32"
+    )
+    csr.eliminate_zeros()
+    write_mtx(indir, sample, batch, window, context, "meth", csr)
+
+    csr = csr_matrix(
+        (row_col_values_notmeth, (rows_idx, cols_idx)), shape=shape, dtype="float32"
+    )
+    csr.eliminate_zeros()
+    write_mtx(indir, sample, batch, window, context, "notmeth", csr)
+
+    csr = csr_matrix(
+        (row_col_values_score, (rows_idx_score, cols_idx_score)),
+        shape=shape,
+        dtype="float32",
+    )
+    write_mtx(indir, sample, batch, window, context, "score", csr)
+
+    elapsed = time.time() - start_time
+    print(f"all matrices saved in {elapsed:.2f}s", flush=True)
+    
+    
 
 def load_mtx(file):
     return scipy.io.mmread(file)
