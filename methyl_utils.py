@@ -18,6 +18,7 @@ import concurrent.futures
 from anndata import AnnData
 import scanpy as sc
 import time
+import pybedtools
 
 N_read_extract = 5e5  # maximum reads for limited moded in testing
 N_interval_log = 1e5  # interval for logging
@@ -759,19 +760,18 @@ def aggregate_quad_parts(indir, sample, batch, context):
         json.dump(data_agg, json_file)
 
 
-def write_mtx(indir, sample, batch, window, context, state, csr):
-    window_mtx_dir = f"{indir}/{sample}/counts_w_{window}_m{context}"
+def write_mtx(mtx_dir, batch, state, csr):
 
-    if not os.path.exists(window_mtx_dir):
+    if not os.path.exists(mtx_dir):
         try:
-            os.makedirs(window_mtx_dir)
-            print(f"{window_mtx_dir} created")
+            os.makedirs(mtx_dir)
+            print(f"{mtx_dir} created")
         except Exception as e:
-            print(f"A {e} occurred, {window_mtx_dir} have already been created")
+            print(f"A {e} occurred, {mtx_dir} have already been created")
     else:
-        print(f"{window_mtx_dir} already exists")
+        print(f"{mtx_dir} already exists")
 
-    csr_file = f"{window_mtx_dir}/b_{batch}_{state}.mtx.gz"
+    csr_file = f"{mtx_dir}/b_{batch}_{state}.mtx.gz"
 
     with gzip.open(csr_file, "wb") as out:
         scipy.io.mmwrite(out, csr)
@@ -911,20 +911,20 @@ def make_count_sparse_mtx_batch_windows(
         (row_col_values_meth, (rows_idx, cols_idx)), shape=shape, dtype="float32"
     )
     csr.eliminate_zeros()
-    write_mtx(indir, sample, batch, window, context, "meth", csr)
+    write_mtx(window_mtx_dir, batch, "meth", csr)
 
     csr = csr_matrix(
         (row_col_values_notmeth, (rows_idx, cols_idx)), shape=shape, dtype="float32"
     )
     csr.eliminate_zeros()
-    write_mtx(indir, sample, batch, window, context, "notmeth", csr)
+    write_mtx(window_mtx_dir, batch, "notmeth", csr)
 
     csr = csr_matrix(
         (row_col_values_score, (rows_idx_score, cols_idx_score)),
         shape=shape,
         dtype="float32",
     )
-    write_mtx(indir, sample, batch, window, context, "score", csr)
+    write_mtx(window_mtx_dir, batch, "score", csr)
 
     elapsed = time.time() - start_time
     print(f"all matrices saved in {elapsed:.2f}s", flush=True)
@@ -933,7 +933,7 @@ def make_count_sparse_mtx_batch_genes(indir, sample, batch, gencode, context):
     dir_split = f"{indir}/{sample}/split"
     agg_batch_json_file = f"{dir_split}/quad_agg_{batch}_{context}.json"
     
-    df_gtf_genes = pd.read_csv('data/gencode.vM35.csv.gz')#,index_col=3)
+    df_gtf_genes = pd.read_csv(gencode)
     bed_genes = pybedtools.BedTool.from_dataframe(df_gtf_genes)
     
     gene_idx_map = dict(zip(df_gtf_genes['gene_id'],df_gtf_genes.index))
@@ -1057,20 +1057,20 @@ def make_count_sparse_mtx_batch_genes(indir, sample, batch, gencode, context):
         (row_col_values_meth, (rows_idx, cols_idx)), shape=shape, dtype="float32"
     )
     csr.eliminate_zeros()
-    write_mtx(indir, sample, batch, window, context, "meth", csr)
+    write_mtx(gene_mtx_dir, batch, "meth", csr)
 
     csr = csr_matrix(
         (row_col_values_notmeth, (rows_idx, cols_idx)), shape=shape, dtype="float32"
     )
     csr.eliminate_zeros()
-    write_mtx(indir, sample, batch, window, context, "notmeth", csr)
+    write_mtx(gene_mtx_dir, batch, "notmeth", csr)
 
     csr = csr_matrix(
         (row_col_values_score, (rows_idx_score, cols_idx_score)),
         shape=shape,
         dtype="float32",
     )
-    write_mtx(indir, sample, batch, window, context, "score", csr)
+    write_mtx(gene_mtx_dir, batch, "score", csr)
 
     elapsed = time.time() - start_time
     print(f"all matrices saved in {elapsed:.2f}s", flush=True)
