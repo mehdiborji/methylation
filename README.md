@@ -146,6 +146,18 @@ sbatch ~/methylation/scripts/SLURM_stack_mtx.sh \
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 ```
 
+- Another way to build count matrices is using gene intervals instead of windows, for this we have a preprocessed version of gencode gtf which is essenetially a bed file with intervals and ensembl gene id form `https://www.gencodegenes.org/mouse/release_M35.html`
+
+```
+sbatch ~/methylation/scripts/SLURM_make_count_mtx_genes.sh \
+        /n/scratch/users/m/meb521/xBO140_nova \
+        xBO140_novaseq \
+        CpG_context \
+        ~/methylation/data/gencode.vM35.csv.gz
+```
+
+
+
 
 
 - To build final bam with duplications and barcodes marked
