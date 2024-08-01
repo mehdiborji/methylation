@@ -1,6 +1,5 @@
 
 
-
 - The first step is to do some preprocessing on the input FASTQ files.
 the pipeline assumes the reads are in a directory arranged in the following format:
 
@@ -128,17 +127,17 @@ z-scored methylation levels
 counts of methylated bases
 counts of nonmethylated bases
 ```
-sbatch ~/methylation/scripts/SLURM_make_count_mtx.sh \
+sbatch ~/methylation/scripts/SLURM_make_count_mtx_windows.sh \
         /n/scratch/users/m/meb521/xBO140_nova \
         xBO140_novaseq \
         100000 \
-        Non_CpG_context \
+        CpG_context \
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 ```
 
 Then we stack all count matricies to make one set of final matrices for each of three in above, we also make coverage matrix, these final matrices are stored in AnnData format.
 ```
-sbatch ~/methylation/scripts/SLURM_stack_mtx.sh \
+sbatch ~/methylation/scripts/SLURM_stack_mtx_windows.sh \
         /n/scratch/users/m/meb521/xBO140_nova \
         xBO140_novaseq \
         100000 \
@@ -155,9 +154,14 @@ sbatch ~/methylation/scripts/SLURM_make_count_mtx_genes.sh \
         CpG_context \
         ~/methylation/data/gencode.vM35.csv.gz
 ```
-
-
-
+Then stacking method also needs some modifications
+```
+sbatch ~/methylation/scripts/SLURM_stack_mtx_genes.sh \
+        /n/scratch/users/m/meb521/xBO140_nova \
+        xBO140_novaseq \
+        CpG_context \
+        ~/methylation/data/gencode.vM35.csv.gz
+```
 
 
 - To build final bam with duplications and barcodes marked
