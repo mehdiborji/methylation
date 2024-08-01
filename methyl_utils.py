@@ -1081,19 +1081,21 @@ def load_mtx(file):
     return scipy.io.mmread(file)
 
 
-def stack_mtx(indir, sample, window, chr_idx_dict, context, cores):
+def stack_mtx_windows(indir, sample, window, chr_idx_dict, context, cores):
     with open(f"{indir}/{sample}/{sample}_whitelist_batches.json", "r") as file:
         bc_splits = json.load(file)
 
     all_bcs_list = []
     for b in bc_splits:
         all_bcs_list.extend(b)
+        
+    chr_idx_string = [idx[0] + "_" + str(idx[1]) for idx in chr_idx_dict.keys()]
+    print("chr_idx_dict lenght = ", len(chr_idx_dict), window, context, flush=True)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=cores) as executor:
+        
         mtx_folder = f"{indir}/{sample}/counts_w_{window}_m{context}"
-        chr_idx_string = [idx[0] + "_" + str(idx[1]) for idx in chr_idx_dict.keys()]
-        print("chr_idx_dict lenght = ", len(chr_idx_dict), window, context, flush=True)
-
+        
         for mtx_type in ["notmeth", "meth", "score"]:
             adata_file = f"{mtx_folder}/adata_{mtx_type}.h5ad"
 
