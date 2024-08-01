@@ -1138,6 +1138,63 @@ def stack_mtx_windows(indir, sample, window, chr_idx_dict, context, cores):
             adatas[0].write_h5ad(coverage_adata_file, compression="gzip")
 
 
+def stack_mtx_genes(indir, sample, gene_idx_list, context, cores):
+    
+    with open(f"{indir}/{sample}/{sample}_whitelist_batches.json", "r") as file:
+        bc_splits = json.load(file)
+
+    all_bcs_list = []
+    for b in bc_splits:
+        all_bcs_list.extend(b)
+        
+    print("gene_idx_string length = ", len(gene_idx_list), flush=True)
+    
+    with concurrent.futures.ProcessPoolExecutor(max_workers=cores) as executor:
+        
+        mtx_folder = f"{indir}/{sample}/counts_gene_m{context}"
+
+        for mtx_type in ["notmeth", "meth", "score"]:
+            adata_file = f"{mtx_folder}/adata_{mtx_type}.h5ad"
+
+            if os.path.isfile(adata_file):
+                print(adata_file, " exists, skip", flush=True)
+                continue
+
+            files = os.listdir(mtx_folder)
+
+            file_pattern = f"_{mtx_type}.mtx.gz"
+            files = sorted([f"{mtx_folder}/{f}" for f in files if file_pattern in f])
+            print(files[0])
+            print("load all mtx", flush=True)
+
+            all_mtx = list(executor.map(load_mtx, files))
+
+            print("stacking", flush=True)
+            merged_matrix = vstack(all_mtx)
+            merged_matrix = csr_matrix(merged_matrix, dtype="float32")
+            print("AnnData making", flush=True)
+            adata = AnnData(merged_matrix)
+            adata.obs.index = all_bcs_list
+            adata.var.index = gene_idx_list
+            print("AnnData writing", flush=True)
+            adata.write_h5ad(adata_file, compression="gzip")
+
+        coverage_adata_file = f"{mtx_folder}/adata_coverage.h5ad"
+
+        if os.path.isfile(coverage_adata_file):
+            print(coverage_adata_file, " exists, skip", flush=True)
+            pass
+        else:
+            print(coverage_adata_file, " will be made", flush=True)
+
+            adatas = []
+            for mtx_type in ["notmeth", "meth"]:
+                adatas.append(sc.read_h5ad(f"{mtx_folder}/adata_{mtx_type}.h5ad"))
+
+            adatas[0].X = adatas[0].X + adatas[1].X
+            adatas[0].write_h5ad(coverage_adata_file, compression="gzip")
+            
+                        
 def Mbias_parser(Mbias_filename):
     context_dict = {}
     current_key = None
