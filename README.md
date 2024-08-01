@@ -1,3 +1,6 @@
+# methylranger
+
+This is a computational workflow for bioinformatics analysis of single-cell DNA methylation sequencing data, based on modification of 10x Genomics Multiome Kit.
 
 
 - The first step is to do some preprocessing on the input FASTQ files.
