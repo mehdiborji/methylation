@@ -761,7 +761,6 @@ def aggregate_quad_parts(indir, sample, batch, context):
 
 
 def write_mtx(mtx_dir, batch, state, csr):
-
     if not os.path.exists(mtx_dir):
         try:
             os.makedirs(mtx_dir)
@@ -929,14 +928,15 @@ def make_count_sparse_mtx_batch_windows(
     elapsed = time.time() - start_time
     print(f"all matrices saved in {elapsed:.2f}s", flush=True)
 
+
 def make_count_sparse_mtx_batch_genes(indir, sample, batch, gencode, context):
     dir_split = f"{indir}/{sample}/split"
     agg_batch_json_file = f"{dir_split}/quad_agg_{batch}_{context}.json"
-    
+
     df_gtf_genes = pd.read_csv(gencode)
     bed_genes = pybedtools.BedTool.from_dataframe(df_gtf_genes)
-    
-    gene_idx_map = dict(zip(df_gtf_genes['gene_id'],df_gtf_genes.index))
+
+    gene_idx_map = dict(zip(df_gtf_genes["gene_id"], df_gtf_genes.index))
 
     gene_mtx_dir = f"{indir}/{sample}/counts_gene_m{context}"
     csr_file = f"{gene_mtx_dir}/b_{batch}_score.mtx.gz"
@@ -995,16 +995,16 @@ def make_count_sparse_mtx_batch_genes(indir, sample, batch, gencode, context):
         )
 
         triplets[3] = triplets[1]
-        triplets = triplets[[0,1,3,2]].copy()
-        triplets = triplets[triplets[0].str.contains('chr')].copy()
+        triplets = triplets[[0, 1, 3, 2]].copy()
+        triplets = triplets[triplets[0].str.contains("chr")].copy()
         bed_bases = pybedtools.BedTool.from_dataframe(triplets)
-        
+
         overlaps_bed = bed_bases.intersect(bed_genes, wb=True)
         df = overlaps_bed.to_dataframe()
-        df = df[['thickEnd','name']].copy()
-        df.columns = ['gene_id','meth']
-        Z_cnt = df[df.meth=='Z'].groupby('gene_id').size()
-        z_cnt = df[df.meth=='z'].groupby('gene_id').size()
+        df = df[["thickEnd", "name"]].copy()
+        df.columns = ["gene_id", "meth"]
+        Z_cnt = df[df.meth == "Z"].groupby("gene_id").size()
+        z_cnt = df[df.meth == "z"].groupby("gene_id").size()
 
         Z_cnt.name = "Z_cnt"
         z_cnt.name = "z_cnt"
@@ -1031,9 +1031,9 @@ def make_count_sparse_mtx_batch_genes(indir, sample, batch, gencode, context):
         print(f"dataframes built in {elapsed:.2f}s", flush=True)
 
         row_vals = (np.ones(len(mrg), dtype=int) * idx).tolist()
-        
+
         col_vals = [gene_idx_map[key] for key in mrg.index]
-        #col_vals = [chr_idx_dict[key] for key in mrg.index]
+        # col_vals = [chr_idx_dict[key] for key in mrg.index]
 
         rows_idx.extend(row_vals)  # cells
         cols_idx.extend(col_vals)  # genes
@@ -1074,8 +1074,7 @@ def make_count_sparse_mtx_batch_genes(indir, sample, batch, gencode, context):
 
     elapsed = time.time() - start_time
     print(f"all matrices saved in {elapsed:.2f}s", flush=True)
-    
-    
+
 
 def load_mtx(file):
     return scipy.io.mmread(file)
@@ -1088,14 +1087,13 @@ def stack_mtx_windows(indir, sample, window, chr_idx_dict, context, cores):
     all_bcs_list = []
     for b in bc_splits:
         all_bcs_list.extend(b)
-        
+
     chr_idx_string = [idx[0] + "_" + str(idx[1]) for idx in chr_idx_dict.keys()]
     print("chr_idx_dict lenght = ", len(chr_idx_dict), window, context, flush=True)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=cores) as executor:
-        
         mtx_folder = f"{indir}/{sample}/counts_w_{window}_m{context}"
-        
+
         for mtx_type in ["notmeth", "meth", "score"]:
             adata_file = f"{mtx_folder}/adata_{mtx_type}.h5ad"
 
@@ -1139,18 +1137,16 @@ def stack_mtx_windows(indir, sample, window, chr_idx_dict, context, cores):
 
 
 def stack_mtx_genes(indir, sample, gene_idx_list, context, cores):
-    
     with open(f"{indir}/{sample}/{sample}_whitelist_batches.json", "r") as file:
         bc_splits = json.load(file)
 
     all_bcs_list = []
     for b in bc_splits:
         all_bcs_list.extend(b)
-        
+
     print("gene_idx_string length = ", len(gene_idx_list), flush=True)
-    
+
     with concurrent.futures.ProcessPoolExecutor(max_workers=cores) as executor:
-        
         mtx_folder = f"{indir}/{sample}/counts_gene_m{context}"
 
         for mtx_type in ["notmeth", "meth", "score"]:
@@ -1193,8 +1189,8 @@ def stack_mtx_genes(indir, sample, gene_idx_list, context, cores):
 
             adatas[0].X = adatas[0].X + adatas[1].X
             adatas[0].write_h5ad(coverage_adata_file, compression="gzip")
-            
-                        
+
+
 def Mbias_parser(Mbias_filename):
     context_dict = {}
     current_key = None
