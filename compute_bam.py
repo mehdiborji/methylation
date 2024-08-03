@@ -19,7 +19,7 @@ limit = args.limit
 
 chrs = pd.read_table(reference_genome_index, header=None)
 
-chrs = chrs[chrs[0].str.startswith('chr')][0].tolist()
+chrs = chrs[chrs[0].str.startswith("chr")][0].tolist()
 
 args = [(indir, sample, c, limit) for c in chrs]
 pool = Pool(int(cores))
