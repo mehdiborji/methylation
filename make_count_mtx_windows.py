@@ -1,5 +1,4 @@
 import argparse
-from multiprocessing import Pool
 import methyl_utils
 
 parser = argparse.ArgumentParser()
@@ -22,15 +21,17 @@ chr_idx_dict = methyl_utils.fasta_index_to_windows(reference_genome_index, windo
 
 print("chr_idx_dict lenght = ", len(chr_idx_dict))
 
-if methylation_context == 'Non_CpG_context':
-    multiplier_per_task = 1 # will run this many of batches in each task, could be one by one or many ar once using pool
+if methylation_context == "Non_CpG_context":
+    multiplier_per_task = 1  # will run this many of batches in each task, could be one by one or many ar once using pool
 else:
     multiplier_per_task = 10
-    
+
 start = (parts_batch - 1) * multiplier_per_task
 end = parts_batch * multiplier_per_task
 
-for b in range(start,end):
+for b in range(start, end):
     batch = str(b + 1).zfill(3)
     print(batch)
-    methyl_utils.make_count_sparse_mtx_batch_windows(indir, sample, batch, window_size, chr_idx_dict, methylation_context)
+    methyl_utils.make_count_sparse_mtx_batch_windows(
+        indir, sample, batch, window_size, chr_idx_dict, methylation_context
+    )
