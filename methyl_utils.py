@@ -42,17 +42,17 @@ def quad_dict_store(quad_dict, quad_key, quad_items):
 
 def quality_calc(seq, quals, bases_dict, quals_dict):
     for i in range(len(seq)):
-        if bases_dict.get(str(i)) is None:
-            bases_dict[str(i)] = {}
-            seq_counter(bases_dict[str(i)], seq[i])
+        if i in seqs_dict:
+            seq_counter(bases_dict[i], seq[i])
         else:
-            seq_counter(bases_dict[str(i)], seq[i])
+            bases_dict[i] = {}
+            seq_counter(bases_dict[i], seq[i])
 
-        if quals_dict.get(str(i)) is None:
-            quals_dict[str(i)] = {}
-            seq_counter(quals_dict[str(i)], quals[i])
+        if i in quals_dict:
+            seq_counter(quals_dict[i], quals[i])
         else:
-            seq_counter(quals_dict[str(i)], quals[i])
+            quals_dict[i] = {}
+            seq_counter(quals_dict[i], quals[i])
 
 
 def string_position_count(seq, seqs_dict):
@@ -214,6 +214,7 @@ def extract_clean_fastq(indir, sample, part, limit):
                 if match:
                     seq_counter(bcs_dict, bc)
 
+                    """
                     R1_clean.write(f"@{r1.name}_1_{bc}\n")
                     R1_clean.write(f"{r1.sequence[11:-2]}\n")
                     R1_clean.write("+\n")
@@ -223,6 +224,17 @@ def extract_clean_fastq(indir, sample, part, limit):
                     R3_clean.write(f"{r3.sequence[2:-2]}\n")
                     R3_clean.write("+\n")
                     R3_clean.write(f"{r3.quality[2:-2]}\n")
+                    """
+                    
+                    R1_clean.write(f"@{r1.name}_1_{bc}\n")
+                    R1_clean.write(f"{r1.sequence}\n")
+                    R1_clean.write("+\n")
+                    R1_clean.write(f"{r1.quality}\n")
+
+                    R3_clean.write(f"@{r3.name}_2_{bc}\n")
+                    R3_clean.write(f"{r3.sequence}\n")
+                    R3_clean.write("+\n")
+                    R3_clean.write(f"{r3.quality}\n")
 
             if i > N_read_extract and limit:
                 break
