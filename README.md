@@ -46,6 +46,10 @@ sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh \
         xBO153_ATAC_240606_S1
 ```
 
+```
+sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/A22KHFFLT3_out xBO173
+```
+
 The pipeline currently is harcoded with the assumption that R2 is 24nt long and has 8nt of splint adapter CAGACGCG at the beginning and reverse compliment of 10x ATAC barcodes from 9-24. It is also harcoded to clip first 11nt and last 2nt of R1 first 2nt and last 2nt of R3 reads. These options can be modified by modifying `extract_clean_fastq` function within `methyl_utils.py` script
 
 The pipeline does several steps including splitting, trimming, barcode transfer from index reads into cDNA reads, potentially quality filtering reads, and collecting raw barcodes for barcode matching.
