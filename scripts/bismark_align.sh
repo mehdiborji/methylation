@@ -1,19 +1,19 @@
 #!/bin/bash
 
-#SBATCH -c 4
-#SBATCH --mem=20G
-#SBATCH -t 0:50:00
-#SBATCH -p short
-#SBATCH -o bismark_align_job_%A.out
-#SBATCH --account=chen_fec176
-
 read1=$1
 read2=$2
 out_dir=$3
 ref_dir=$4
 
-module load gcc/9.2.0
-module load bowtie2/2.5.1
-
-/home/meb521/Bismark-0.24.2/bismark --pbat $ref_dir -1 $read1 -2 $read2 -o $out_dir
-
+echo 'indir =' $1
+echo 'sample =' $2
+echo 'out_dir =' $3
+echo 'reference =' $4
+    
+/home/meb521/Bismark-0.24.2/bismark \
+    --pbat \
+    --score_min L,0,-0.6 \
+    $ref_dir \
+    -1 $read1 \
+    -2 $read2 \
+    -o $out_dir
