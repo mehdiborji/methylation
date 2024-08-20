@@ -1,5 +1,4 @@
 import argparse
-from multiprocessing import Pool
 import methyl_utils
 
 parser = argparse.ArgumentParser()
