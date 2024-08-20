@@ -1,5 +1,4 @@
 import argparse
-from multiprocessing import Pool
 import methyl_utils
 import pandas as pd
 
@@ -19,6 +18,6 @@ context = args.methylation_context
 reference_gencode = args.reference_gencode
 
 df_gtf_genes = pd.read_csv(reference_gencode)
-gene_idx_list = df_gtf_genes['gene_id'].tolist()
-    
+gene_idx_list = df_gtf_genes["gene_id"].tolist()
+
 methyl_utils.stack_mtx_genes(indir, sample, gene_idx_list, context, cores)
