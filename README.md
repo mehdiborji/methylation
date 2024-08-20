@@ -54,8 +54,13 @@ The pipeline currently is harcoded with the assumption that R2 is 24nt long and 
 
 The pipeline does several steps including splitting, trimming, barcode transfer from index reads into cDNA reads, potentially quality filtering reads, and collecting raw barcodes for barcode matching.
 
+- After this step a standalone adapater trimming is used using fastp
 
-- After this step we run a simple script which submits MANY jobs to the HPC for each chunk of fastq
+```
+sbatch ~/methylation/scripts/SLURM_trim_pipeline.sh /n/scratch/users/m/meb521/A22KHFFLT3_out xBO177
+```
+
+- Next `methyl_alignment_pipeline` script submits MANY jobs to the HPC for each chunk of fastq
 
 
 ```
@@ -75,6 +80,18 @@ To monitor the state of each aligment job we can look at last line of the log wh
 ```
 find . -type f -name 'methylation_extractor_job_*' -exec tail -n 1 {} \;
 ```
+
+- `alig_parts` does this with array jobs
+
+```
+sbatch ~/methylation/scripts/SLURM_align_parts.sh \
+        /n/scratch/users/m/meb521/A22KHFFLT3_out \
+        xBO177 \
+        /n/scratch/users/m/meb521/GRCm39_full
+```
+
+
+
 
 - After alignment postprocessing and count matrix generation is done with the second SLURM pipeline:
 Required arguments are window_size for binning, context which can be two values `Non_CpG_context` and `CpG_context` and fasta index of the reference used in alignment two such indices are available in data folder human `GRCh38_v44_chrs.fasta` and mouse `GRCm39_v34_allcontigs.fasta.fai`
@@ -111,6 +128,7 @@ sbatch ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
 
 
 This is an array job `SLURM_ARRAY_TASK_ID` is embedded as an input argument to `save_quad_batch.py`. Each  which subsequently splits the parts into batches of 12 and processess them in pools of two using 2 cores. `TASK_ID` will determine which 12-part batch of parts the task will process. `TASK_ID` 1 will process parts `000` to `011`, `TASK_ID` 4 will process parts `036` to `047` and so on.
+Each bam of roughly 8m paired-end reads with fragment average of 100nt will need 18GB RAM to produce jsons
 
 ```
 sbatch ~/methylation/scripts/SLURM_save_quad_batch.sh \
@@ -191,5 +209,11 @@ sbatch ~/methylation/scripts/SLURM_compute_bam.sh \
         /n/scratch/users/m/meb521/xBO140_nova \
         xBO140_novaseq
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
+        
+```
+
+```
+sbatch ~/methylation/scripts/SLURM_compute_bam.sh \
+        /n/scratch/users/m/meb521/A22KHFFLT3_out xBO180 ~/methylation/data/GRCh38_v44_chrs.fasta.fasta.fai
         
 ```
