@@ -151,6 +151,9 @@ First we make count matrix from methylation calls for barcodes in each batch. Fo
 z-scored methylation levels
 counts of methylated bases
 counts of nonmethylated bases
+
+
+A mouse example with `GRCm39` reference
 ```
 sbatch ~/methylation/scripts/SLURM_make_count_mtx_windows.sh \
         /n/scratch/users/m/meb521/xBO140_nova \
@@ -160,6 +163,18 @@ sbatch ~/methylation/scripts/SLURM_make_count_mtx_windows.sh \
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 ```
 
+
+A human example with `GRCh38` reference
+```
+sbatch ~/methylation/scripts/SLURM_make_count_mtx_windows.sh \
+        /n/scratch/users/m/meb521/A22KHFFLT3_out \
+        xBO180 \
+        100000 \
+        CpG_context \
+        ~/methylation/data/GRCh38_v44_chrs.fasta.fai 
+```
+
+ 
 Then we stack all count matricies to make one set of final matrices for each of three in above, we also make coverage matrix, these final matrices are stored in AnnData format.
 ```
 sbatch ~/methylation/scripts/SLURM_stack_mtx_windows.sh \
@@ -170,7 +185,11 @@ sbatch ~/methylation/scripts/SLURM_stack_mtx_windows.sh \
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 ```
 
-- Another way to build count matrices is using gene intervals instead of windows, for this we have a preprocessed version of gencode gtf which is essenetially a bed file with intervals and ensembl gene id form `https://www.gencodegenes.org/mouse/release_M35.html`
+- Another way to build count matrices is using gene intervals instead of windows, for this we have a preprocessed version of gencode gtf which is essenetially a bed file with intervals and ensembl gene id. 
+
+For mouse we can obtain `Comprehensive gene annotation` from: `https://www.gencodegenes.org/mouse/release_M35.html`
+For human we can obtain one from: `https://www.gencodegenes.org/human/release_46.html`
+
 
 ```
 sbatch ~/methylation/scripts/SLURM_make_count_mtx_genes.sh \
@@ -179,6 +198,15 @@ sbatch ~/methylation/scripts/SLURM_make_count_mtx_genes.sh \
         CpG_context \
         ~/methylation/data/gencode.vM35.csv.gz
 ```
+
+```
+sbatch ~/methylation/scripts/SLURM_make_count_mtx_genes.sh \
+        /n/scratch/users/m/meb521/A22KHFFLT3_out \
+        xBO180 \
+        CpG_context \
+        ~/methylation/data/gencode.v46.csv.gz 
+```
+
 Then stacking method also needs some modifications
 ```
 sbatch ~/methylation/scripts/SLURM_stack_mtx_genes.sh \
