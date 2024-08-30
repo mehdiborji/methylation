@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -c 20
 #SBATCH --mem=4G
-#SBATCH -t 0:50:00
+#SBATCH -t 0:20:00
 #SBATCH -p short
 #SBATCH -o compute_bam_job_%A.out
 #SBATCH --account=chen_fec176

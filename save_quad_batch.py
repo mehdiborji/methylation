@@ -16,11 +16,10 @@ sample = args.sample
 limit = args.limit
 parts_batch = args.parts_batch
 
-
 parts = methyl_utils.find_sub_fastq_parts(indir, sample)
 
-start = (parts_batch - 1) * 12
-end = parts_batch * 12
+start = (parts_batch - 1) * cores
+end = parts_batch * cores
 
 args = [(indir, sample, part, limit) for part in parts[start:end]]
 pool = Pool(cores)
