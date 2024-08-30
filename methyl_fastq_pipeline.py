@@ -39,7 +39,7 @@ pool.join()
 
 methyl_utils.aggregate_bc_dicts(indir, sample)
 
-methyl_utils.write_bc_raw_reads(indir, sample, 2)
+methyl_utils.write_bc_raw_reads(indir, sample, 5)
 
 ######################################################
 
@@ -66,7 +66,7 @@ else:
     print(
         "ref generation log", ref_generation_log, " does not exist, will make reference"
     )
-    subprocess.call(
+    subprocess.run(
         [
             f"{py_dir}/scripts/barcode_ref.sh",
             f"{indir}/{sample}/{sample}_bc_whitelist.fasta",
@@ -82,7 +82,7 @@ if os.path.isfile(alignment_log):
     print("alignment log", alignment_log, " exists")
 else:
     print("alignment log", alignment_log, " does not exist, will perform alignment")
-    subprocess.call(
+    subprocess.run(
         [
             f"{py_dir}/scripts/barcode_align.sh",
             f"{indir}/{sample}/{sample}_bc_raw_reads.fasta",
@@ -95,7 +95,7 @@ else:
 
 ######################################################
 
-methyl_utils.processing_matching(indir, sample, AS_min=10)
+methyl_utils.processing_matching(indir, sample, AS_min=14)
 methyl_utils.filered_barcodes(indir, sample, read_cnt_min=10000)
 
 ######################################################
