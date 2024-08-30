@@ -24,7 +24,7 @@ print("chr_idx_dict lenght = ", len(chr_idx_dict))
 if methylation_context == "Non_CpG_context":
     multiplier_per_task = 1  # will run this many of batches in each task, could be one by one or many ar once using pool
 else:
-    multiplier_per_task = 10
+    multiplier_per_task = 5
 
 start = (parts_batch - 1) * multiplier_per_task
 end = parts_batch * multiplier_per_task
