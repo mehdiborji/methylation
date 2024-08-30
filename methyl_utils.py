@@ -20,7 +20,7 @@ import scanpy as sc
 import time
 import pybedtools
 
-N_read_extract = 5e5  # maximum reads for limited moded in testing
+N_read_extract = 5e3  # maximum reads for limited moded in testing
 N_interval_log = 1e5  # interval for logging
 
 print(N_read_extract)
@@ -42,7 +42,7 @@ def quad_dict_store(quad_dict, quad_key, quad_items):
 
 def quality_calc(seq, quals, bases_dict, quals_dict):
     for i in range(len(seq)):
-        if i in seqs_dict:
+        if i in bases_dict:
             seq_counter(bases_dict[i], seq[i])
         else:
             bases_dict[i] = {}
@@ -121,6 +121,8 @@ def find_sub_fastq_parts(indir, sample):
 
     return parts
 
+def run_command(command):
+    subprocess.run(command, shell=True)
 
 def split_fastq_by_lines(indir, sample, lines=4e6):
     splitted_file = f"{indir}/{sample}/split/{sample}_R1.part_000.fastq"
@@ -144,13 +146,22 @@ def split_fastq_by_lines(indir, sample, lines=4e6):
         command_R1 = f"zcat {R1} | split -a 3 -l {int(lines)} -d --additional-suffix=.fastq - {split_R1_name}"
         command_R2 = command_R1.replace("_R1", "_R2")
         command_R3 = command_R1.replace("_R1", "_R3")
+        
+        from concurrent.futures import ThreadPoolExecutor
+        
+        commands = [command_R1, command_R2, command_R3]
+        with ThreadPoolExecutor() as executor:
+            executor.map(run_command, commands)
 
-        subprocess.call(f"{command_R1} & {command_R2} & {command_R3}", shell=True)
+        #subprocess.call(f"{command_R1} & {command_R2} & {command_R3}", shell=True)
 
 
 def extract_clean_fastq(indir, sample, part, limit):
-    i = 0
-
+    
+    total_reads = 0
+    
+    start_time = time.time()
+    
     R1_fastq = f"{indir}/{sample}/split/{sample}_R1.part_{part}.fastq"
     R2_fastq = R1_fastq.replace("_R1.", "_R2.")
     R3_fastq = R1_fastq.replace("_R1.", "_R3.")
@@ -183,8 +194,9 @@ def extract_clean_fastq(indir, sample, part, limit):
     with pysam.FastxFile(R1_fastq) as R1, pysam.FastxFile(
         R2_fastq
     ) as R2, pysam.FastxFile(R3_fastq) as R3:
-        for r1, r2, r3 in tqdm(zip(R1, R2, R3)):
-            i += 1
+        for r1, r2, r3 in zip(R1, R2, R3):
+            
+            total_reads += 1
 
             seq1 = r1.sequence
             seq2 = r2.sequence
@@ -196,7 +208,7 @@ def extract_clean_fastq(indir, sample, part, limit):
             # bc = seq2 for sciMET data, matched already
             # seq_counter(bcs_dict,bc)
 
-            if do_qc and i % 500 == 0:
+            if do_qc and total_reads % 500 == 0:
                 quals1 = r1.get_quality_array()
                 quality_calc(seq1, quals1, r1_base_dict, r1_qual_dict)
 
@@ -214,18 +226,6 @@ def extract_clean_fastq(indir, sample, part, limit):
                 if match:
                     seq_counter(bcs_dict, bc)
 
-                    """
-                    R1_clean.write(f"@{r1.name}_1_{bc}\n")
-                    R1_clean.write(f"{r1.sequence[11:-2]}\n")
-                    R1_clean.write("+\n")
-                    R1_clean.write(f"{r1.quality[11:-2]}\n")
-
-                    R3_clean.write(f"@{r3.name}_2_{bc}\n")
-                    R3_clean.write(f"{r3.sequence[2:-2]}\n")
-                    R3_clean.write("+\n")
-                    R3_clean.write(f"{r3.quality[2:-2]}\n")
-                    """
-                    
                     R1_clean.write(f"@{r1.name}_1_{bc}\n")
                     R1_clean.write(f"{r1.sequence}\n")
                     R1_clean.write("+\n")
@@ -235,8 +235,12 @@ def extract_clean_fastq(indir, sample, part, limit):
                     R3_clean.write(f"{r3.sequence}\n")
                     R3_clean.write("+\n")
                     R3_clean.write(f"{r3.quality}\n")
-
-            if i > N_read_extract and limit:
+            
+            if total_reads % N_interval_log == 0:
+                elapsed_time = time.time() - start_time
+                print(f"Processed {total_reads} reads in {elapsed_time:.2f}s", flush=True)
+            
+            if total_reads > N_read_extract and limit:
                 break
 
     r1_qual_df = quality_df(r1_qual_dict)
@@ -296,7 +300,7 @@ def tag_bam_with_barcodes(indir, sample, part, limit):
     raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
 
     sam_tag = f"{indir}/{sample}/split/{sample}.part_{part}_tagged.bam"
-    sam = f"{indir}/{sample}/split/output_{part}/{sample}_R1.part_{part}_clean_bismark_bt2_pe.bam"
+    sam = f"{indir}/{sample}/split/output_{part}/{sample}_R1.part_{part}_clean_trim_bismark_bt2_pe.bam"
 
     if os.path.isfile(sam_tag):
         print(sam_tag, " exists, skip")
@@ -588,7 +592,7 @@ def save_quad_batch_json(indir, sample, part, context, limit):
 def save_quad_batch_from_bam(indir, sample, part, limit):
     dir_split = f"{indir}/{sample}/split"
     bam_file = (
-        f"{dir_split}/output_{part}/{sample}_R1.part_{part}_clean_bismark_bt2_pe.bam"
+        f"{dir_split}/output_{part}/{sample}_R1.part_{part}_clean_trim_bismark_bt2_pe.bam"
     )
 
     bias_meth_file = (
@@ -642,12 +646,12 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
             chrom_pos = read.get_reference_positions()
 
         if read.is_read1:  # mean it's R2
-            meth = meth[10:-10]
-            chrom_pos = chrom_pos[10:-10]
+            meth = meth[2:-10]
+            chrom_pos = chrom_pos[2:-10]
             string_position_count(meth, R2_meth_dict)
         else:
-            meth = meth[3:-10]
-            chrom_pos = chrom_pos[3:-10]
+            meth = meth[10:-2]
+            chrom_pos = chrom_pos[10:-2]
 
             string_position_count(meth, R1_meth_dict)
 
