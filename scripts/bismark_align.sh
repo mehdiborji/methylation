@@ -5,10 +5,10 @@ read2=$2
 out_dir=$3
 ref_dir=$4
 
-echo 'indir =' $1
-echo 'sample =' $2
+echo 'read1 =' $1
+echo 'read2 =' $2
 echo 'out_dir =' $3
-echo 'reference =' $4
+echo 'ref_dir =' $4
     
 /home/meb521/Bismark-0.24.2/bismark \
     --pbat \
