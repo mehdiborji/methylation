@@ -12,7 +12,7 @@ echo 'ref_dir =' $4
     
 /home/meb521/Bismark-0.24.2/bismark \
     --pbat \
-    --score_min L,0,-0.6 \
+    --score_min L,0,-0.4 \
     $ref_dir \
     -1 $read1 \
     -2 $read2 \
