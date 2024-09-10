@@ -20,7 +20,7 @@ import scanpy as sc
 import time
 import pybedtools
 
-N_read_extract = 5e3  # maximum reads for limited moded in testing
+N_read_extract = 5e4  # maximum reads for limited moded in testing
 N_interval_log = 1e5  # interval for logging
 
 print(N_read_extract)
@@ -142,7 +142,8 @@ def split_fastq_by_lines(indir, sample, lines=4e6):
             print(f"{split_dir} already exists")
 
         split_R1_name = f"{split_dir}/{sample}_R1.part_"
-
+        
+        # pigz -p 8 -d --stdout {R1} #potential minor speed gain instead of zcat:
         command_R1 = f"zcat {R1} | split -a 3 -l {int(lines)} -d --additional-suffix=.fastq - {split_R1_name}"
         command_R2 = command_R1.replace("_R1", "_R2")
         command_R3 = command_R1.replace("_R1", "_R3")
@@ -152,9 +153,6 @@ def split_fastq_by_lines(indir, sample, lines=4e6):
         commands = [command_R1, command_R2, command_R3]
         with ThreadPoolExecutor() as executor:
             executor.map(run_command, commands)
-
-        #subprocess.call(f"{command_R1} & {command_R2} & {command_R3}", shell=True)
-
 
 def extract_clean_fastq(indir, sample, part, limit):
     
@@ -591,9 +589,11 @@ def save_quad_batch_json(indir, sample, part, context, limit):
 
 def save_quad_batch_from_bam(indir, sample, part, limit):
     dir_split = f"{indir}/{sample}/split"
-    bam_file = (
-        f"{dir_split}/output_{part}/{sample}_R1.part_{part}_clean_trim_bismark_bt2_pe.bam"
-    )
+    
+    suffix = "clean_trim_bismark_bt2_pe.nonCG_filtered.bam"
+    #suffix = "clean_trim_bismark_bt2_pe.bam"
+    
+    bam_file = f"{dir_split}/output_{part}/{sample}_R1.part_{part}_{suffix}"
 
     bias_meth_file = (
         f"{dir_split}/output_{part}/{sample}_part_{part}_bias_methylation.csv"
@@ -631,11 +631,6 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
     for read in bam.fetch(until_eof=True):
         total_reads += 1
 
-        # print(read)
-        # qs = read.query_alignment_qualities.tolist()
-        # qual_avg = ave_qual(qs)
-        # vals = [qual_avg, read.flag, read.is_read1,read.is_reverse, read.get_tag('XM'), np.abs(read.template_length),len(qs)]
-        # qual_list.append(vals)
         # frag_size = read.template_length
         chrom = read.reference_name
         if read.is_reverse:
@@ -650,8 +645,8 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
             chrom_pos = chrom_pos[2:-10]
             string_position_count(meth, R2_meth_dict)
         else:
-            meth = meth[10:-2]
-            chrom_pos = chrom_pos[10:-2]
+            meth = meth[10:-2]#[:175]
+            chrom_pos = chrom_pos[10:-2]#[:175]
 
             string_position_count(meth, R1_meth_dict)
 
@@ -687,7 +682,7 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
 
         if total_reads % N_interval_log == 0:
             elapsed_time = time.time() - start_time
-            print(f"Processed {total_reads} reads in {elapsed_time:.2f} seconds.")
+            print(f"Processed {total_reads} reads in {elapsed_time:.2f} seconds.", flush=True)
 
         if total_reads > N_read_extract and limit:
             break
@@ -852,14 +847,16 @@ def make_count_sparse_mtx_batch_windows(
         # maybe save this stats later
         # one call also do this in aggregate_quad_parts
 
-        dedup = {}
+        #dedup = {}
 
-        for b in data_sub[bc]:
-            seq_counter(dedup, b)
+        #for b in data_sub[bc]:
+        #    seq_counter(dedup, b)
 
         # convert back to ['chr', '100', 'Z'] format
-
-        triplets = [d.split("_") for d in dedup.keys()]
+        #triplets = [d.split("_") for d in dedup.keys()]
+        
+        dedup = set(data_sub[bc])
+        triplets = [d.split("_") for d in dedup]
         triplets = pd.DataFrame(triplets)
 
         elapsed = time.time() - start_time
