@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -c 10
 #SBATCH --mem=10G
-#SBATCH -t 0:30:00
+#SBATCH -t 0:10:00
 #SBATCH -p short
 #SBATCH -o stack_mtx_genes_job_%A.out
 #SBATCH --account=chen_fec176

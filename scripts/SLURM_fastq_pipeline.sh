@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -c 20
-#SBATCH --mem=40G
+#SBATCH --mem=20G
 #SBATCH -t 4:20:00
 #SBATCH -p priority
 #SBATCH -o methyl_fastq_job_%A.out

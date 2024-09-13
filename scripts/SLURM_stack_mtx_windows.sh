@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH -c 10
-#SBATCH --mem=10G
+#SBATCH -c 8
+#SBATCH --mem=16G
 #SBATCH -t 0:30:00
-#SBATCH -p short
+#SBATCH -p priority
 #SBATCH -o stack_mtx_windows_job_%A.out
 #SBATCH --account=chen_fec176
 
@@ -12,4 +12,4 @@ echo 'window =' $3
 echo 'methylation_context =' $4
 echo 'reference_index =' $5
 
-python ~/methylation/stack_mtx_windows.py -c 20 -i $1 -s $2 -w $3 -m $4 -r $5
+python ~/methylation/stack_mtx_windows.py -c 8 -i $1 -s $2 -w $3 -m $4 -r $5
