@@ -17,10 +17,6 @@ parts_batch = args.parts_batch
 
 ######################################################
 
-parts = methyl_utils.find_sub_fastq_parts(indir, sample)
-
-print(f"found {len(parts)} parts")
-
 print("current dir:", os.getcwd())
 os.chdir(indir)
 print("current dir changed to:", os.getcwd())
@@ -42,4 +38,4 @@ mbias_exists = os.path.isfile(mbias)
 if not mbias_exists:
     submit = f"{command} {fq1} {fq2} {outdir} {ref_dir} {bam}"
     print(submit)
-    subprocess.call(submit, shell=True)
+    subprocess.run(submit, shell=True)
