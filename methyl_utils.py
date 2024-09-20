@@ -224,12 +224,12 @@ def extract_clean_fastq(indir, sample, part, limit):
                 if match:
                     seq_counter(bcs_dict, bc)
 
-                    R1_clean.write(f"@{r1.name}_1_{bc}\n")
+                    R1_clean.write(f"@{r1.name}_{bc} r1\n")
                     R1_clean.write(f"{r1.sequence}\n")
                     R1_clean.write("+\n")
                     R1_clean.write(f"{r1.quality}\n")
 
-                    R3_clean.write(f"@{r3.name}_2_{bc}\n")
+                    R3_clean.write(f"@{r3.name}_{bc} r2\n")
                     R3_clean.write(f"{r3.sequence}\n")
                     R3_clean.write("+\n")
                     R3_clean.write(f"{r3.quality}\n")
@@ -294,11 +294,42 @@ def extract_bc_from_bam(indir, sample, part, limit):
 
 
 def tag_bam_with_barcodes(indir, sample, part, limit):
+    
     matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv")
     raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
 
     sam_tag = f"{indir}/{sample}/split/{sample}.part_{part}_tagged.bam"
     sam = f"{indir}/{sample}/split/output_{part}/{sample}_R1.part_{part}_clean_trim_bismark_bt2_pe.bam"
+
+    if os.path.isfile(sam_tag):
+        print(sam_tag, " exists, skip")
+        return
+
+    samfile = pysam.AlignmentFile(sam, "rb")
+    tagged_bam = pysam.AlignmentFile(sam_tag, "wb", template=samfile)
+
+    i = 0
+    for read in tqdm(samfile.fetch(until_eof=True), mininterval=2):
+        i += 1
+        raw_barcode = read.qname.split("_")[-1]
+        if raw_barcode in raw_to_tenx:
+            matched_barcode = raw_to_tenx[raw_barcode]
+
+            read.set_tag("CB", matched_barcode)
+            tagged_bam.write(read)
+        if i > N_read_extract and limit:
+            break
+
+    tagged_bam.close()
+    samfile.close()
+    
+def tag_bam_with_all_barcodes(indir, sample, part, limit):
+    
+    matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv")
+    raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
+
+    sam_tag = f"{indir}/{sample}/split/{sample}.part_{part}_tagged.bam"
+    sam = f"{indir}/{sample}/split/{sample}_part_{part}.bam"
 
     if os.path.isfile(sam_tag):
         print(sam_tag, " exists, skip")
