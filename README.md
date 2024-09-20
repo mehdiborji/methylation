@@ -2,7 +2,6 @@
 
 This is a computational workflow for bioinformatics analysis of single-cell DNA methylation sequencing data, based on modification of 10x Genomics Multiome Kit.
 
-
 - The first step is to do some preprocessing on the input FASTQ files.
 the pipeline assumes the reads are in a directory arranged in the following format:
 
@@ -22,32 +21,11 @@ For example:
 
 The following script wraps the `methyl_fastq_pipeline.py` into a SLURM job with two input variables required for input:
 `input_directory` and `sample_name`
-```
-~/methylation/scripts/SLURM_fastq_pipeline.sh \
-        /n/scratch/users/m/meb521/methyl_seq/nextseq \
-        xBO87_ATAC_S1
-```
-Other examples submitted with sbatch
-```
-sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh \
-        /n/scratch/users/m/meb521/xBO140/fastqs \
-        xBO140a_S1
-```
 
-```
-sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh \
-        /n/scratch/users/m/meb521/xBO140_nova \
-        xBO140_novaseq
-```
-
-```
-sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh \
-        /n/scratch/users/m/meb521/xBO153 \
-        xBO153_ATAC_240606_S1
-```
 
 ```
 sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/A22KHFFLT3_out xBO173
+sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/A22KHFYLT3_out xBO153_merge
 ```
 
 The pipeline currently is harcoded with the assumption that R2 is 24nt long and has 8nt of splint adapter CAGACGCG at the beginning and reverse compliment of 10x ATAC barcodes from 9-24. It is also harcoded to clip first 11nt and last 2nt of R1 first 2nt and last 2nt of R3 reads. These options can be modified by modifying `extract_clean_fastq` function within `methyl_utils.py` script
@@ -60,20 +38,13 @@ The pipeline does several steps including splitting, trimming, barcode transfer 
 sbatch ~/methylation/scripts/SLURM_trim_pipeline.sh /n/scratch/users/m/meb521/A22KHFFLT3_out xBO177
 ```
 
-- Next `methyl_alignment_pipeline` script submits MANY jobs to the HPC for each chunk of fastq
 
+- For the alignments we use `alig_parts` script does this with array jobs
 
 ```
-python ~/methylation/methyl_alignment_pipeline.py \
-        -r /n/scratch/users/m/meb521/GRCm39_full \
-        -i /n/scratch/users/m/meb521/xBO140/fastqs \
-        -s xBO140a_S1 -b -j
-        
-
-python ~/methylation/methyl_alignment_pipeline.py \
-        -r /n/scratch/users/m/meb521/GRCm39_full \
-        -i /n/scratch/users/m/meb521/xBO140_nova \
-        -s xBO140_novaseq -b -j
+sbatch ~/methylation/scripts/SLURM_align_parts.sh \
+        /n/scratch/users/m/meb521/A22KHFFLT3_out xBO177 \
+        /n/scratch/users/m/meb521/GRCm39_full
 ```
 
 To monitor the state of each aligment job we can look at last line of the log which contains total number of reads processed so far
@@ -81,36 +52,16 @@ To monitor the state of each aligment job we can look at last line of the log wh
 find . -type f -name 'methylation_extractor_job_*' -exec tail -n 1 {} \;
 ```
 
-- `alig_parts` does this with array jobs
+Alignments for genomic data is done with minimap2:
 
 ```
-sbatch ~/methylation/scripts/SLURM_align_parts.sh \
-        /n/scratch/users/m/meb521/A22KHFFLT3_out \
-        xBO177 \
-        /n/scratch/users/m/meb521/GRCm39_full
+sbatch ~/methylation/scripts/SLURM_align_parts_minimap.sh \
+        /n/scratch/users/m/meb521/A22KHFYLT3_out xBO153_merge \
+        /n/scratch/users/m/meb521/GRCh38_v44/GRCh38_v44_chrs.fasta
 ```
-
-
-
 
 - After alignment postprocessing and count matrix generation is done with the second SLURM pipeline:
 Required arguments are window_size for binning, context which can be two values `Non_CpG_context` and `CpG_context` and fasta index of the reference used in alignment two such indices are available in data folder human `GRCh38_v44_chrs.fasta` and mouse `GRCm39_v34_allcontigs.fasta.fai`
-
-```
-~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
-        /n/scratch/users/m/meb521/xBO140/fastqs \
-        xBO140a_S1 \
-        100000 \
-        Non_CpG_context \
-        ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
-
-sbatch ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
-        /n/scratch/users/m/meb521/xBO140/fastqs \
-        xBO140a_S1 \
-        200000 \
-        CpG_context \
-        ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
-```
 
 ```
 sbatch ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
@@ -120,8 +71,6 @@ sbatch ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
         CpG_context \
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 ```
-
-
 
 
 - For very large datasets we split the pipeline into pieces and submit them as array jobs:
@@ -131,18 +80,15 @@ This is an array job `SLURM_ARRAY_TASK_ID` is embedded as an input argument to `
 Each bam of roughly 8m paired-end reads with fragment average of 100nt will need 18GB RAM to produce jsons
 
 ```
-sbatch ~/methylation/scripts/SLURM_save_quad_batch.sh \
-        /n/scratch/users/m/meb521/xBO140_nova \
-        xBO140_novaseq
+sbatch ~/methylation/scripts/SLURM_save_quad_batch.sh /n/scratch/users/m/meb521/A22KFHJLT3_out xBO183
 ```
 
-```
-sbatch ~/methylation/scripts/SLURM_aggregate_quad_parts.sh \
-        /n/scratch/users/m/meb521/xBO140_nova \
-        xBO140_novaseq \
-        CpG_context
-```
+Aggregation of batches into single files is done separately for CpG an Non_CpG contexts:
 
+```
+sbatch ~/methylation/scripts/SLURM_aggregate_quad_parts_CpG.sh /n/scratch/users/m/meb521/A22KFHJLT3_out xBO183
+sbatch ~/methylation/scripts/SLURM_aggregate_quad_parts_Non_CpG.sh /n/scratch/users/m/meb521/A22KFHJLT3_out xBO183
+```
 
 
 - To build count matrices from batches, we first make matrix from each batch and then stack them
@@ -242,6 +188,6 @@ sbatch ~/methylation/scripts/SLURM_compute_bam.sh \
 
 ```
 sbatch ~/methylation/scripts/SLURM_compute_bam.sh \
-        /n/scratch/users/m/meb521/A22KHFFLT3_out xBO180 ~/methylation/data/GRCh38_v44_chrs.fasta.fasta.fai
+        /n/scratch/users/m/meb521/A22KHFFLT3_out xBO180 ~/methylation/data/GRCh38_v44_chrs.fasta.fai
         
 ```
