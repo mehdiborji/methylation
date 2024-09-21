@@ -490,7 +490,7 @@ def processing_matching(indir, sample, AS_min=12):
 
 
 def filered_barcodes(indir, sample, read_cnt_min=100000):
-    print("opening raw_to_tenx_passing_AS DF")
+    
     matched = pd.read_csv(f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv")
     matched_sub = matched[["read_cnt", "tenx_whitelist"]]
     matched_sub_grouped = matched_sub.groupby("tenx_whitelist").sum()
@@ -523,6 +523,111 @@ def filered_barcodes(indir, sample, read_cnt_min=100000):
 
     print("saving whitelist")
     bcs.to_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
+
+def filered_barcodes(indir, sample, max_expected_barcodes=50000, bins=100):
+    
+    from scipy.ndimage import gaussian_filter1d
+    from scipy.signal import find_peaks
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    print("opening raw_to_tenx_passing_AS DF")
+    matched = pd.read_csv(f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv")
+    matched_sub = matched[["read_cnt", "tenx_whitelist"]]
+    matched_sub_grouped = matched_sub.groupby("tenx_whitelist").sum()
+
+    qc_pdf_file = f"{indir}/{sample}/{sample}_QC.pdf"
+
+    #if os.path.isfile(qc_pdf_file):
+    #    print(qc_pdf_file, " exists, skip")
+    #else:
+    qc_pdfs = PdfPages(qc_pdf_file)
+
+    agg_bcs = matched_sub_grouped.sort_values(by="read_cnt", ascending=False)
+    agg_bcs["log10_read_cnt"] = np.log10(agg_bcs.read_cnt)
+
+    # select top max_bc except first 100
+    sub = agg_bcs.iloc[20:max_expected_barcodes].copy()
+    # fit a histogram
+    x = np.histogram(sub.log10_read_cnt, bins)  
+    # smooth histogram
+    smooth = gaussian_filter1d(x[0], 3)
+    # find the local minimum
+    peak_idx, _ = find_peaks(-smooth)
+    # take the mid point of point before and after
+    print(peak_idx, x[1][:-1][peak_idx])
+    mean_hist = (x[1][1:][peak_idx] + x[1][:-1][peak_idx]) / 2  
+
+    # take the last value in list of local minima (could be more than one)
+    mean_hist = mean_hist[-1]  
+
+    print(f"filtering for final whitelist with min log10={round(mean_hist,4)} counts")
+    wl_df = agg_bcs[agg_bcs.log10_read_cnt >= mean_hist].copy()
+    wl_df.to_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
+    # wl_reads=wl_df.read_cnt.sum()
+
+    matched_filtered = matched[matched.tenx_whitelist.isin(wl_df.index)].copy()
+    print("saving raw_to_tenx_whitelist")
+    matched_filtered.to_csv(
+        f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv", index=None
+    )
+
+    white_list_size = wl_df.shape[0]
+
+    print("plotting rankplot and histogram of 10x matched read counts")
+    plt.figure(figsize=(4, 3))
+    log10_ranks = np.log10(np.arange(1, len(agg_bcs) + 1))
+    log10_cnts = agg_bcs.log10_read_cnt
+    plt.plot(log10_ranks, log10_cnts)  # ,label='Rank Plot of Reads')
+    plt.xlabel("Log10 Ranks")
+    plt.ylabel("Log10 Read Counts")
+
+    reads_in_wh = round(wl_df.read_cnt.sum()/1e6,1)
+    matche_reads = round(agg_bcs.read_cnt.sum()/1e6,1)
+
+    print(reads_in_wh,matche_reads,reads_in_wh/matche_reads*100)
+    plt.title(f"{sample}\n {white_list_size} white listed")
+
+    plt.plot(
+        [0, log10_ranks[-1]],
+        [mean_hist, mean_hist],
+        linewidth=1,
+        label="log10 threshold",
+        c="tab:green",
+    )
+    log10_wl = np.log10(white_list_size)
+    plt.plot(
+        [log10_wl, log10_wl],
+        [log10_cnts.min(), log10_cnts.max()],
+        linewidth=1,
+        label="log10 size",
+        c="tab:orange",
+    )
+    plt.legend(loc="best")
+
+    qc_pdfs.savefig(bbox_inches="tight")
+
+    plt.figure(figsize=(4, 3))
+    plt.plot(x[1][:-1], x[0], label="Raw Histogram")
+    plt.plot(x[1][:-1], smooth, label="Gaussian Smoothed")
+    plt.xlabel("Log10 Read Counts")
+    plt.ylabel("Bin Height")
+    plt.title(f"{sample}\n in_whitelist={reads_in_wh}m \n bc_matched={matche_reads}m")
+    plt.plot(
+        [mean_hist, mean_hist],
+        [0, np.max(x[0])],
+        linewidth=2,
+        label="Whitelist Threshold",
+    )
+    plt.legend(loc="best")
+    qc_pdfs.savefig(bbox_inches="tight")
+    
+    
+    plt.figure(figsize=(4, 3))
+    #plt.hist(sub.log10_read_cnt, 100);
+    sns.histplot(sub.log10_read_cnt,bins=bins);
+    plt.title(f"{sample}\n")
+    qc_pdfs.savefig(bbox_inches="tight")
+
 
 
 def split_bcs_to_batches(indir, sample, sub_batch_N):
