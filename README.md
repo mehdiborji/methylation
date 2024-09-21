@@ -32,14 +32,14 @@ The pipeline currently is harcoded with the assumption that R2 is 24nt long and 
 
 The pipeline does several steps including splitting, trimming, barcode transfer from index reads into cDNA reads, potentially quality filtering reads, and collecting raw barcodes for barcode matching.
 
-- After this step a standalone adapater trimming is used using fastp
+- Adapater trimming is done using fastp
 
 ```
 sbatch ~/methylation/scripts/SLURM_trim_pipeline.sh /n/scratch/users/m/meb521/A22KHFFLT3_out xBO177
 ```
 
 
-- For the alignments we use `alig_parts` script does this with array jobs
+- Alignments are done with Bismark and array jobs, one task for each part
 
 ```
 sbatch ~/methylation/scripts/SLURM_align_parts.sh \
@@ -47,17 +47,19 @@ sbatch ~/methylation/scripts/SLURM_align_parts.sh \
         /n/scratch/users/m/meb521/GRCm39_full
 ```
 
-To monitor the state of each aligment job we can look at last line of the log which contains total number of reads processed so far
+- There are partially converted reads which need to be removed
+
 ```
-find . -type f -name 'methylation_extractor_job_*' -exec tail -n 1 {} \;
+sbatch ~/methylation/scripts/SLURM_filter_non_conv.sh n/scratch/users/m/meb521/A22KHFFLT3_out xBO177
 ```
 
-Alignments for genomic data is done with minimap2:
+
+- Alignments for genomic data is done with minimap2, multiple parts per task:
 
 ```
 sbatch ~/methylation/scripts/SLURM_align_parts_minimap.sh \
-        /n/scratch/users/m/meb521/A22KHFYLT3_out xBO153_merge \
-        /n/scratch/users/m/meb521/GRCh38_v44/GRCh38_v44_chrs.fasta
+        /n/scratch/users/m/meb521/183_186_A22FLV2LT4 x186 \
+        /n/scratch/users/m/meb521/GRCh38_v44/GRCh38_v44_chrs.mmi
 ```
 
 - After alignment postprocessing and count matrix generation is done with the second SLURM pipeline:
