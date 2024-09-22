@@ -1,6 +1,6 @@
 # methylranger
 
-This is a computational workflow for bioinformatics analysis of single-cell DNA methylation sequencing data, based on modification of 10x Genomics Multiome Kit.
+This is a computational workflow for bioinformatics analysis of single-cell DNA methylation sequencing data, based on modification of 10x Genomics Chromium Single Cell Multiome ATAC + Gene Expression assay.
 
 - The first step is to do some preprocessing on the input FASTQ files.
 the pipeline assumes the reads are in a directory arranged in the following format:
@@ -100,14 +100,11 @@ z-scored methylation levels
 counts of methylated bases
 counts of nonmethylated bases
 
-
 A mouse example with `GRCm39` reference
 ```
-sbatch ~/methylation/scripts/SLURM_make_count_mtx_windows.sh \
-        /n/scratch/users/m/meb521/xBO140_nova \
-        xBO140_novaseq \
-        100000 \
-        CpG_context \
+sbatch ~/methylation/scripts/SLURM_make_count_mtx_windows_CpG.sh . x183 100000 \
+        ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
+sbatch ~/methylation/scripts/SLURM_make_count_mtx_windows_Non_CpG.sh . x183 100000 \
         ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 ```
 
@@ -126,11 +123,8 @@ sbatch ~/methylation/scripts/SLURM_make_count_mtx_windows.sh \
 Then we stack all count matricies to make one set of final matrices for each of three in above, we also make coverage matrix, these final matrices are stored in AnnData format.
 ```
 sbatch ~/methylation/scripts/SLURM_stack_mtx_windows.sh \
-        /n/scratch/users/m/meb521/xBO140_nova \
-        xBO140_novaseq \
-        100000 \
-        CpG_context \
-        ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
+        /n/scratch/users/m/meb521/xBO140_nova xBO140_novaseq \
+        100000 CpG_context ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 ```
 
 - Another way to build count matrices is using gene intervals instead of windows, for this we have a preprocessed version of gencode gtf which is essenetially a bed file with intervals and ensembl gene id. 
@@ -168,28 +162,17 @@ sbatch ~/methylation/scripts/SLURM_stack_mtx_genes.sh \
 - To build final bam with duplications and barcodes marked
 We first add barcode tag into each part and filter out all reads and did not match to whitelist:
 ```
-sbatch ~/methylation/scripts/SLURM_tag_bam_parts.sh \
-        /n/scratch/users/m/meb521/xBO140_nova \
-        xBO140_novaseq
+sbatch ~/methylation/scripts/SLURM_tag_bam_parts.sh in_dir sample
 ```
 
 After tagging all bam parts we can aggregate and mark duplicates using the following:
 ```
-sbatch ~/methylation/scripts/bam_merge.sh \
-        /n/scratch/users/m/meb521/xBO140_nova \
-        xBO140_novaseq
+sbatch ~/methylation/scripts/bam_merge.sh in_dir sample
 ```
 Finally we can compute statistics from the entire bam. We do this in a per chromosome level and in parallel:
 ```
-sbatch ~/methylation/scripts/SLURM_compute_bam.sh \
-        /n/scratch/users/m/meb521/xBO140_nova \
-        xBO140_novaseq
-        ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
+sbatch ~/methylation/scripts/SLURM_compute_bam.sh in_dir sample ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
         
-```
-
-```
-sbatch ~/methylation/scripts/SLURM_compute_bam.sh \
-        /n/scratch/users/m/meb521/A22KHFFLT3_out xBO180 ~/methylation/data/GRCh38_v44_chrs.fasta.fai
+sbatch ~/methylation/scripts/SLURM_compute_bam.sh in_dir sample ~/methylation/data/GRCh38_v44_chrs.fasta.fai
         
 ```
