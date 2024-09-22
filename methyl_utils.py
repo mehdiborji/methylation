@@ -2,7 +2,6 @@ import pysam
 import os
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 import edlib
 import json
 import subprocess
@@ -20,7 +19,7 @@ import scanpy as sc
 import time
 import pybedtools
 
-N_read_extract = 5e4  # maximum reads for limited moded in testing
+N_read_extract = 3e4  # maximum reads for limited moded in testing
 N_interval_log = 1e5  # interval for logging
 
 print(N_read_extract)
@@ -279,10 +278,10 @@ def extract_bc_from_bam(indir, sample, part, limit):
 
     samfile = pysam.AlignmentFile(bam, "r")
 
-    for read in tqdm(samfile.fetch(until_eof=True)):
+    for read in samfile.fetch(until_eof=True):
         i += 1
 
-        bc = read.qname.split("_")[-1]
+        bc = read.qname.split("_")[-2]
 
         seq_counter(bcs_dict, bc)
 
@@ -293,7 +292,7 @@ def extract_bc_from_bam(indir, sample, part, limit):
         json.dump(bcs_dict, json_file)
 
 
-def tag_bam_with_barcodes(indir, sample, part, limit):
+def tag_bismark_bam_with_whitelist_barcodes(indir, sample, part, limit):
     
     matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv")
     raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
@@ -308,22 +307,31 @@ def tag_bam_with_barcodes(indir, sample, part, limit):
     samfile = pysam.AlignmentFile(sam, "rb")
     tagged_bam = pysam.AlignmentFile(sam_tag, "wb", template=samfile)
 
-    i = 0
-    for read in tqdm(samfile.fetch(until_eof=True), mininterval=2):
-        i += 1
-        raw_barcode = read.qname.split("_")[-1]
+    total_reads = 0
+    
+    start_time = time.time()
+    
+    for read in samfile.fetch(until_eof=True):
+        
+        total_reads += 1
+        raw_barcode = read.qname.split("_")[-2]
         if raw_barcode in raw_to_tenx:
             matched_barcode = raw_to_tenx[raw_barcode]
 
             read.set_tag("CB", matched_barcode)
             tagged_bam.write(read)
-        if i > N_read_extract and limit:
+            
+        if total_reads % N_interval_log == 0:
+                elapsed_time = time.time() - start_time
+                print(f"Processed {total_reads} reads of part {part} in {elapsed_time:.2f}s", flush=True)
+            
+        if total_reads > N_read_extract and limit:
             break
 
     tagged_bam.close()
     samfile.close()
     
-def tag_bam_with_all_barcodes(indir, sample, part, limit):
+def tag_minimap_bam_with_all_barcodes(indir, sample, part, limit):
     
     matching_csv = pd.read_csv(f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv")
     raw_to_tenx = dict(zip(matching_csv.bc, matching_csv.tenx_whitelist))
@@ -338,18 +346,25 @@ def tag_bam_with_all_barcodes(indir, sample, part, limit):
     samfile = pysam.AlignmentFile(sam, "rb")
     tagged_bam = pysam.AlignmentFile(sam_tag, "wb", template=samfile)
 
-    i = 0
-    for read in tqdm(samfile.fetch(until_eof=True), mininterval=2):
-        i += 1
+    total_reads = 0
+    
+    start_time = time.time()
+    
+    for read in samfile.fetch(until_eof=True):
+        total_reads += 1
         raw_barcode = read.qname.split("_")[-1]
         if raw_barcode in raw_to_tenx:
             matched_barcode = raw_to_tenx[raw_barcode]
 
             read.set_tag("CB", matched_barcode)
             tagged_bam.write(read)
-        if i > N_read_extract and limit:
+            
+        if total_reads % N_interval_log == 0:
+                elapsed_time = time.time() - start_time
+                print(f"Processed {total_reads} reads of part {part} in {elapsed_time:.2f}s", flush=True)
+            
+        if total_reads > N_read_extract and limit:
             break
-
     tagged_bam.close()
     samfile.close()
 
@@ -397,7 +412,8 @@ def compute_dup_rate(indir, sample, chrom, limit):
 
 
 def aggregate_bc_dicts(indir, sample):
-    dir_split = f"{indir}/{sample}/split/"
+    
+    dir_split = f"{indir}/{sample}/split"
     files = os.listdir(dir_split)
     jsons = sorted([f for f in files if "_bcs.json" in f])
 
@@ -409,8 +425,11 @@ def aggregate_bc_dicts(indir, sample):
 
     data_agg = {}
 
-    for i in tqdm(range(len(jsons))):
-        with open(f"{dir_split}{jsons[i]}", "r") as json_file:
+    for jsn in jsons:
+        
+        jsn_to_load = f"{dir_split}/{jsn}"
+        
+        with open(jsn_to_load, "r") as json_file:
             data_sub = json.load(json_file)
             for k in data_sub:
                 if data_agg.get(k) is not None:
@@ -464,7 +483,7 @@ def processing_matching(indir, sample, AS_min=12):
 
     samfile = pysam.AlignmentFile(f"{indir}/{sample}/{sample}_matching.sam", "rb")
 
-    for read in tqdm(samfile.fetch()):
+    for read in samfile.fetch():
         AS = read.get_tag("AS")
         all_AS.append([AS, read.flag])
         if read.flag == 0:
@@ -487,42 +506,6 @@ def processing_matching(indir, sample, AS_min=12):
     matched.to_csv(
         f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv", index=None
     )
-
-
-def filered_barcodes(indir, sample, read_cnt_min=100000):
-    
-    matched = pd.read_csv(f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv")
-    matched_sub = matched[["read_cnt", "tenx_whitelist"]]
-    matched_sub_grouped = matched_sub.groupby("tenx_whitelist").sum()
-
-    agg_bcs = matched_sub_grouped[matched_sub_grouped.read_cnt > 5]
-    agg_bcs = agg_bcs.sort_values(by="read_cnt", ascending=False)
-    agg_bcs["log10_read_cnt"] = np.log10(agg_bcs.read_cnt)
-
-    print("plotting rankplot and histogram of 10x matched read counts")
-    plt.figure(figsize=(4, 3))
-    log10_ranks = np.log10(np.arange(1, len(agg_bcs) + 1))
-    log10_cnts = agg_bcs.log10_read_cnt
-    plt.plot(log10_ranks, log10_cnts)  # ,label='Rank Plot of Reads')
-    plt.xlabel("Log10 Ranks")
-    plt.ylabel("Log10 Read Counts")
-    plt.savefig(f"{indir}/{sample}/{sample}_rankplot.pdf", bbox_inches="tight")
-
-    plt.figure(figsize=(4, 3))
-    sns.histplot(log10_cnts[log10_cnts > 3], bins=100)
-    plt.xlabel("Log10 Read Counts")
-    plt.savefig(f"{indir}/{sample}/{sample}_histogram.pdf", bbox_inches="tight")
-
-    print(f"filtering for final whitelist with minimum {read_cnt_min} counts")
-    bcs = agg_bcs[agg_bcs.read_cnt > read_cnt_min].copy()
-    matched_filtered = matched[matched.tenx_whitelist.isin(bcs.index)].copy()
-    print("saving raw_to_tenx_whitelist")
-    matched_filtered.to_csv(
-        f"{indir}/{sample}/{sample}_raw_to_tenx_whitelist.csv", index=None
-    )
-
-    print("saving whitelist")
-    bcs.to_csv(f"{indir}/{sample}/{sample}_whitelist.csv")
 
 def filered_barcodes(indir, sample, max_expected_barcodes=50000, bins=100):
     
@@ -628,11 +611,15 @@ def filered_barcodes(indir, sample, max_expected_barcodes=50000, bins=100):
     plt.title(f"{sample}\n")
     qc_pdfs.savefig(bbox_inches="tight")
 
+    qc_pdfs.close()
 
 
-def split_bcs_to_batches(indir, sample, sub_batch_N):
+def split_bcs_to_batches(indir, sample):
     bcs = pd.read_csv(f"{indir}/{sample}/{sample}_whitelist.csv", index_col=0)
-
+    
+    sub_batch_N = int(bcs.read_cnt.sum()/1e6/15)
+    
+    print(f'total batches of 15m reads {sub_batch_N}')
     # Initialize N batches and their sums
     batches = [[] for _ in range(sub_batch_N)]
     batch_sums = [0] * sub_batch_N
@@ -686,7 +673,7 @@ def save_quad_batch_json(indir, sample, part, context, limit):
     i = 0
 
     with gzip.open(meth_file, "rt") as f:
-        for line in tqdm(f):
+        for line in f:
             i += 1
 
             split_line = line.strip().split("\t")
@@ -795,7 +782,7 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
             #    print(read.cigar,diff,len(read.get_tag('XM')),len(read.get_reference_positions()))
             #    break
         else:
-            raw_bc = read.qname.split("_")[-1]
+            raw_bc = read.qname.split("_")[-2]
 
             if raw_bc in raw_to_tenx:
                 matched_bc = raw_to_tenx[raw_bc]
