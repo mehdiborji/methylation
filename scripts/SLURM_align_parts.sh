@@ -5,7 +5,7 @@
 #SBATCH -t 5:30:00
 #SBATCH -p short
 #SBATCH -o align_parts_job_%A_%a.out
-#SBATCH --array=2-228
+#SBATCH --array=2-58
 #SBATCH --account=chen_fec176
 
 echo 'indir =' $1

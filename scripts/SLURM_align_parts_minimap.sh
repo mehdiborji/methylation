@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#SBATCH -c 20
+#SBATCH -c 8
 #SBATCH --mem=16G
-#SBATCH -t 2:30:00
-#SBATCH -p priority
-#SBATCH -o align_parts_job_%A_%a.out
-#SBATCH --array=1
+#SBATCH -t 3:59:00
+#SBATCH -p short
+#SBATCH -o align_parts_minimap_job_%A_%a.out
+#SBATCH --array=2-46
 #SBATCH --account=chen_fec176
 
 echo 'indir =' $1
