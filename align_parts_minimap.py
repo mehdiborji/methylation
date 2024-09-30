@@ -27,7 +27,7 @@ command = "/home/meb521/methylation/scripts/minimap_align.sh"
 # total fastq parts must be <= multiplier_per_task * array_job total tasks
 # x153 DNA library with 1.43b total and 10m per part reads: 143 < 9 * 16
 
-multiplier_per_task = 144
+multiplier_per_task = 6
 
 start = (parts_batch - 1) * multiplier_per_task
 end = parts_batch * multiplier_per_task
