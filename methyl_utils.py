@@ -371,7 +371,12 @@ def tag_minimap_bam_with_all_barcodes(indir, sample, part, limit):
 
 def compute_dup_rate(indir, sample, chrom, limit):
     N_interval_log = 1e6
+    
     sam = f"{indir}/{sample}/{sample}_markdup.bam"
+    
+    if not os.path.isfile(sam):
+        sam = f"{indir}/{sample}/{sample}_markdup_piped.bam"
+        
     samfile = pysam.AlignmentFile(sam, "rb")
 
     BC_dup_count = {}

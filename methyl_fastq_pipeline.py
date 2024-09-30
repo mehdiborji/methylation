@@ -9,6 +9,7 @@ parser.add_argument("-c", "--cores", type=str)
 parser.add_argument("-i", "--indir", type=str)
 parser.add_argument("-s", "--sample", type=str)
 parser.add_argument("-b", "--barcodes", type=str)
+parser.add_argument("-d", "--total_droplets", type=int)
 parser.add_argument("-l", "--limit", default=False, action="store_true")
 
 args = parser.parse_args()
@@ -16,8 +17,8 @@ cores = args.cores
 indir = args.indir
 sample = args.sample
 barcodes = args.barcodes
+total_droplets = args.total_droplets
 limit = args.limit
-
 
 py_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -39,7 +40,7 @@ pool.join()
 
 methyl_utils.aggregate_bc_dicts(indir, sample)
 
-methyl_utils.write_bc_raw_reads(indir, sample, 5)
+methyl_utils.write_bc_raw_reads(indir, sample, 3)
 
 ######################################################
 
@@ -96,14 +97,12 @@ else:
 ######################################################
 
 methyl_utils.processing_matching(indir, sample, AS_min=14)
-methyl_utils.filered_barcodes(indir, sample, read_cnt_min=10000)
+
+if total_droplets is None:
+    total_droplets = 50000
+    
+methyl_utils.filered_barcodes(indir, sample, total_droplets)
+
+methyl_utils.split_bcs_to_batches((indir, sample))
 
 ######################################################
-
-"""
-pool = Pool(int(cores))
-results = pool.starmap(methyl_utils.extract_bc_from_bam, args)
-pool.close()
-pool.join()
-
-"""
