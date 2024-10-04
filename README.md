@@ -24,8 +24,7 @@ The following script wraps the `methyl_fastq_pipeline.py` into a SLURM job with 
 
 
 ```
-sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/A22KHFFLT3_out xBO173
-sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh /n/scratch/users/m/meb521/A22KHFYLT3_out xBO153_merge
+sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh . x195_DM 30000
 ```
 
 The pipeline currently is harcoded with the assumption that R2 is 24nt long and has 8nt of splint adapter CAGACGCG at the beginning and reverse compliment of 10x ATAC barcodes from 9-24. It is also harcoded to clip first 11nt and last 2nt of R1 first 2nt and last 2nt of R3 reads. These options can be modified by modifying `extract_clean_fastq` function within `methyl_utils.py` script
@@ -35,50 +34,29 @@ The pipeline does several steps including splitting, trimming, barcode transfer 
 - Adapater trimming is done using fastp
 
 ```
-sbatch ~/methylation/scripts/SLURM_trim_pipeline.sh /n/scratch/users/m/meb521/A22KHFFLT3_out xBO177
+sbatch ~/methylation/scripts/SLURM_trim_pipeline.sh . xBO177
 ```
-
 
 - Alignments are done with Bismark and array jobs, one task for each part
-
 ```
-sbatch ~/methylation/scripts/SLURM_align_parts.sh \
-        /n/scratch/users/m/meb521/A22KHFFLT3_out xBO177 \
-        /n/scratch/users/m/meb521/GRCm39_full
+sbatch ~/methylation/scripts/SLURM_align_parts.sh . x195_DM ../GRCm39_full
+```
+
+- Alignments for genomic data is done with minimap2, multiple parts per task:
+```
+sbatch ~/methylation/scripts/SLURM_align_parts_minimap.sh . x198_WG  ../GRCh38_v44/GRCh38_v44_chrs.mmi
 ```
 
 - There are partially converted reads which need to be removed
-
 ```
-sbatch ~/methylation/scripts/SLURM_filter_non_conv.sh n/scratch/users/m/meb521/A22KHFFLT3_out xBO177
+sbatch ~/methylation/scripts/SLURM_filter_non_conv.sh . xBO177
 ```
-
-
-- Alignments for genomic data is done with minimap2, multiple parts per task:
-
-```
-sbatch ~/methylation/scripts/SLURM_align_parts_minimap.sh \
-        /n/scratch/users/m/meb521/183_186_A22FLV2LT4 x186 \
-        /n/scratch/users/m/meb521/GRCh38_v44/GRCh38_v44_chrs.mmi
-```
-
-- After alignment postprocessing and count matrix generation is done with the second SLURM pipeline:
-Required arguments are window_size for binning, context which can be two values `Non_CpG_context` and `CpG_context` and fasta index of the reference used in alignment two such indices are available in data folder human `GRCh38_v44_chrs.fasta` and mouse `GRCm39_v34_allcontigs.fasta.fai`
-
-```
-sbatch ~/methylation/scripts/SLURM_bam_mtx_pipeline.sh \
-        /n/scratch/users/m/meb521/xBO140_nova \
-        xBO140_novaseq \
-        100000 \
-        CpG_context \
-        ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
-```
-
 
 - For very large datasets we split the pipeline into pieces and submit them as array jobs:
 
+This is an array job `SLURM_ARRAY_TASK_ID` is embedded as an input argument to `save_quad_batch.py`. 
 
-This is an array job `SLURM_ARRAY_TASK_ID` is embedded as an input argument to `save_quad_batch.py`. Each  which subsequently splits the parts into batches of 12 and processess them in pools of two using 2 cores. `TASK_ID` will determine which 12-part batch of parts the task will process. `TASK_ID` 1 will process parts `000` to `011`, `TASK_ID` 4 will process parts `036` to `047` and so on.
+Each  which subsequently splits the parts into batches of 12 and processess them in pools of two using 2 cores. `TASK_ID` will determine which 12-part batch of parts the task will process. `TASK_ID` 1 will process parts `000` to `011`, `TASK_ID` 4 will process parts `036` to `047` and so on.
 Each bam of roughly 8m paired-end reads with fragment average of 100nt will need 18GB RAM to produce jsons
 
 ```
@@ -88,10 +66,9 @@ sbatch ~/methylation/scripts/SLURM_save_quad_batch.sh /n/scratch/users/m/meb521/
 Aggregation of batches into single files is done separately for CpG an Non_CpG contexts:
 
 ```
-sbatch ~/methylation/scripts/SLURM_aggregate_quad_parts_CpG.sh /n/scratch/users/m/meb521/A22KFHJLT3_out xBO183
-sbatch ~/methylation/scripts/SLURM_aggregate_quad_parts_Non_CpG.sh /n/scratch/users/m/meb521/A22KFHJLT3_out xBO183
+sbatch ~/methylation/scripts/SLURM_aggregate_quad_parts_CpG.sh . x195
+sbatch ~/methylation/scripts/SLURM_aggregate_quad_parts_Non_CpG.sh . xBO183
 ```
-
 
 - To build count matrices from batches, we first make matrix from each batch and then stack them
 
