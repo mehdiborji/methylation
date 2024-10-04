@@ -19,8 +19,8 @@ import scanpy as sc
 import time
 import pybedtools
 
-N_read_extract = 3e4  # maximum reads for limited moded in testing
-N_interval_log = 1e5  # interval for logging
+N_read_extract = 3e5  # maximum reads for limited moded in testing
+N_interval_log = 1e6  # interval for logging
 
 print(N_read_extract)
 
@@ -235,7 +235,8 @@ def extract_clean_fastq(indir, sample, part, limit):
             
             if total_reads % N_interval_log == 0:
                 elapsed_time = time.time() - start_time
-                print(f"Processed {total_reads} reads in {elapsed_time:.2f}s", flush=True)
+                message = f"Processed {total_reads} reads in {elapsed_time:.2f}s"
+                print(f"{message} in part {part}", flush=True)
             
             if total_reads > N_read_extract and limit:
                 break
@@ -352,13 +353,17 @@ def tag_minimap_bam_with_all_barcodes(indir, sample, part, limit):
     
     for read in samfile.fetch(until_eof=True):
         total_reads += 1
-        raw_barcode = read.qname.split("_")[-1]
-        if raw_barcode in raw_to_tenx:
-            matched_barcode = raw_to_tenx[raw_barcode]
-
-            read.set_tag("CB", matched_barcode)
-            tagged_bam.write(read)
+        
+        if read.is_proper_pair and read.mapq > 5:
             
+            raw_barcode = read.qname.split("_")[-1]
+
+            if raw_barcode in raw_to_tenx:
+                matched_barcode = raw_to_tenx[raw_barcode]
+
+                read.set_tag("CB", matched_barcode)
+                tagged_bam.write(read)
+
         if total_reads % N_interval_log == 0:
                 elapsed_time = time.time() - start_time
                 print(f"Processed {total_reads} reads of part {part} in {elapsed_time:.2f}s", flush=True)
@@ -487,7 +492,12 @@ def processing_matching(indir, sample, AS_min=12):
     all_pairs = []
 
     samfile = pysam.AlignmentFile(f"{indir}/{sample}/{sample}_matching.sam", "rb")
-
+    
+    matched_csv = f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv" 
+    if os.path.isfile(matched_csv):
+        print(matched_csv, " exists, skip")
+        return
+    
     for read in samfile.fetch():
         AS = read.get_tag("AS")
         all_AS.append([AS, read.flag])
@@ -508,8 +518,7 @@ def processing_matching(indir, sample, AS_min=12):
     matched = matched[matched.AS >= AS_min].copy()
 
     print("saving tenx_passin")
-    matched.to_csv(
-        f"{indir}/{sample}/{sample}_matching_raw_to_tenx_passing.csv", index=None
+    matched.to_csv(matched_csv, index=None
     )
 
 def filered_barcodes(indir, sample, max_expected_barcodes=50000, bins=100):
@@ -769,12 +778,12 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
             chrom_pos = read.get_reference_positions()
 
         if read.is_read1:  # mean it's R2
-            meth = meth[2:-10]
-            chrom_pos = chrom_pos[2:-10]
+            meth = meth[8:-10] #[2:-10]
+            chrom_pos = chrom_pos[8:-10] #[2:-10]
             string_position_count(meth, R2_meth_dict)
         else:
-            meth = meth[10:-2]#[:175]
-            chrom_pos = chrom_pos[10:-2]#[:175]
+            meth = meth[10:-8]#[10:-2]#[:175]
+            chrom_pos = chrom_pos[10:-8]#[10:-2]#[:175]
 
             string_position_count(meth, R1_meth_dict)
 
