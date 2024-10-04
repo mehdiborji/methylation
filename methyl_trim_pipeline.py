@@ -13,7 +13,7 @@ sample = args.sample
 parts_batch = args.parts_batch
 ######################################################
 
-multiplier_per_task = 20
+multiplier_per_task = 15
 
 start = (parts_batch - 1) * multiplier_per_task
 end = parts_batch * multiplier_per_task
@@ -35,8 +35,6 @@ for b in range(start, end):
     #options = "--adapter_sequence=CTATCTCTTATACACATCTCCAAACC --adapter_sequence_r2=CTGTCTCTTATACACATCTGACGCTG"
     
     options = "--adapter_sequence=CTGTCTCTTATACACATCT --adapter_sequence_r2=CTGTCTCTTATACACATCT"
-    
-    #options = "--adapter_sequence=TCTCTTATACACATCT --adapter_sequence_r2=TCTCTTATACACATCT"
     
     input_output = f"-i {fq1} -I {fq2} -o {out_fq1} -O {out_fq2} -j {out_json} -h {out_html}"
     

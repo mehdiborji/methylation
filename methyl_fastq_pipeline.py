@@ -60,9 +60,7 @@ if os.path.isfile(ref_generation_log):
         last_line = lines[-1].strip()
     print(last_line)
     if last_line != "DONE: Genome generation, EXITING":
-        print(
-            "last line of Genome generation log is not what it should be, possibly corrupt reference"
-        )
+        print("Genome generation log is not complete")
 else:
     print(
         "ref generation log", ref_generation_log, " does not exist, will make reference"
@@ -103,6 +101,6 @@ if total_droplets is None:
     
 methyl_utils.filered_barcodes(indir, sample, total_droplets)
 
-methyl_utils.split_bcs_to_batches((indir, sample))
+methyl_utils.split_bcs_to_batches(indir, sample)
 
 ######################################################
