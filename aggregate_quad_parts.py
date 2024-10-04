@@ -13,8 +13,10 @@ sample = args.sample
 methylation_context = args.methylation_context
 parts_batch = args.parts_batch
 
-start = (parts_batch - 1) * 5
-end = parts_batch * 5
+multiplier_per_task = 5
+
+start = (parts_batch - 1) * multiplier_per_task
+end = parts_batch * multiplier_per_task
 
 for b in range(start, end):
     batch = str(b + 1).zfill(3)

@@ -32,9 +32,9 @@ multiplier_per_task = 6
 start = (parts_batch - 1) * multiplier_per_task
 end = parts_batch * multiplier_per_task
 
-for p in range(start, end):
+for part in range(start, end):
     
-    p = str(p).zfill(3)
+    p = str(part).zfill(3)
 
     outdir = f"{sample}/split"
     fq1 = f"{sample}_R1.part_{p}_clean_trim.fastq"

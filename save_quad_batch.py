@@ -1,28 +1,24 @@
 import argparse
-from multiprocessing import Pool
 import methyl_utils
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-c", "--cores", type=int)
 parser.add_argument("-i", "--indir", type=str)
 parser.add_argument("-s", "--sample", type=str)
 parser.add_argument("-l", "--limit", default=False, action="store_true")
 parser.add_argument("-p", "--parts_batch", type=int)
 args = parser.parse_args()
 
-cores = args.cores
 indir = args.indir
 sample = args.sample
 limit = args.limit
 parts_batch = args.parts_batch
 
-parts = methyl_utils.find_sub_fastq_parts(indir, sample)
+multiplier_per_task = 3
 
-start = (parts_batch - 1) * cores
-end = parts_batch * cores
+start = (parts_batch - 1) * multiplier_per_task
+end = parts_batch * multiplier_per_task
 
-args = [(indir, sample, part, limit) for part in parts[start:end]]
-pool = Pool(cores)
-results = pool.starmap(methyl_utils.save_quad_batch_from_bam, args)
-pool.close()
-pool.join()
+
+for part in range(start, end):
+    print(part)
+    methyl_utils.save_quad_batch_from_bam(indir, sample, str(part).zfill(3), limit)
