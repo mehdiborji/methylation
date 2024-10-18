@@ -1225,6 +1225,51 @@ def make_count_sparse_mtx_batch_genes(indir, sample, batch, gencode, context):
     elapsed = time.time() - start_time
     print(f"all matrices saved in {elapsed:.2f}s", flush=True)
 
+def make_allc_tsv(indir, sample, batch, context):
+    
+    agg_batch_json_file = f"{indir}/{sample}/split/quad_agg_{batch}_{context}.json"
+    
+    print(agg_batch_json_file)
+    with open(agg_batch_json_file, "r") as json_file:
+        data_sub = json.load(json_file)
+        
+    allcools_dir = f"{indir}/{sample}/allcools"
+    if not os.path.exists(allcools_dir):
+        os.makedirs(allcools_dir)
+        print(f"{allcools_dir} created")
+    else:
+        print(f"{allcools_dir} already exists")
+
+    batch_bcs = list(data_sub.keys())
+
+    for idx, bc in enumerate(batch_bcs):
+        total_bases = len(data_sub[bc])
+
+        print(bc, total_bases)
+        
+        dedup = set(data_sub[bc])
+        triplets = [d.split("_") for d in dedup]
+        triplets = pd.DataFrame(triplets)
+
+        Z_cnt = triplets[triplets[2] == "Z"].groupby([0, 1]).size()
+        z_cnt = triplets[triplets[2] == "z"].groupby([0, 1]).size()
+        
+        Z_cnt.name = "Z_cnt"
+        z_cnt.name = "z_cnt"
+        
+        mrg = pd.merge(Z_cnt, z_cnt, how="outer", left_index=True, right_index=True)
+        mrg = mrg.fillna(0)
+        cell_mC = mrg.sum()
+        mrg = mrg.reset_index()
+        mrg['strand'] = '+'
+        mrg['cov'] = mrg['z_cnt'] + mrg['Z_cnt']
+        mrg['sig_meth'] = 1
+        mrg['context'] = 'CG'
+        mrg = mrg[[0, 1, 'strand', 'context', 'Z_cnt', 'cov', 'sig_meth']]
+        mrg['Z_cnt'] = mrg['Z_cnt'].astype(int)
+        mrg['cov'] = mrg['cov'].astype(int)
+        mrg.to_csv(f'{allcools_dir}/{bc}_{context}.tsv',index=None,header=None,sep='\t')
+        
 
 def load_mtx(file):
     return scipy.io.mmread(file)
