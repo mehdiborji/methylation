@@ -1239,7 +1239,12 @@ def make_allc_tsv(indir, sample, batch, context):
         print(f"{allcools_dir} created")
     else:
         print(f"{allcools_dir} already exists")
-
+    
+    if context.startswith('CpG'):
+        bed_context_col = 'CG'
+    else:
+        bed_context_col = 'CH'
+    
     batch_bcs = list(data_sub.keys())
 
     for idx, bc in enumerate(batch_bcs):
@@ -1264,7 +1269,7 @@ def make_allc_tsv(indir, sample, batch, context):
         mrg['strand'] = '+'
         mrg['cov'] = mrg['z_cnt'] + mrg['Z_cnt']
         mrg['sig_meth'] = 1
-        mrg['context'] = 'CG'
+        mrg['context'] = bed_context_col
         mrg = mrg[[0, 1, 'strand', 'context', 'Z_cnt', 'cov', 'sig_meth']]
         mrg['Z_cnt'] = mrg['Z_cnt'].astype(int)
         mrg['cov'] = mrg['cov'].astype(int)
