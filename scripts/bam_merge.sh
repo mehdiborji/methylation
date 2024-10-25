@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH -c 20
-#SBATCH --mem=40G
-#SBATCH -t 8:40:00
-#SBATCH -p priority
+#SBATCH -c 16
+#SBATCH --mem=32G
+#SBATCH -t 10:40:00
+#SBATCH -p short
 #SBATCH -o merge_bam_job_%A.out
 #SBATCH --account=chen_fec176
 

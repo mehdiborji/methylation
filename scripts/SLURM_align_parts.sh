@@ -2,10 +2,10 @@
 
 #SBATCH -c 5
 #SBATCH --mem=17G
-#SBATCH -t 5:30:00
+#SBATCH -t 3:30:00
 #SBATCH -p short
 #SBATCH -o align_parts_job_%A_%a.out
-#SBATCH --array=2-58
+#SBATCH --array=1-37
 #SBATCH --account=chen_fec176
 
 echo 'indir =' $1

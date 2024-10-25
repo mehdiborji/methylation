@@ -19,7 +19,7 @@ os.chdir(indir)
 print("current dir changed to:", os.getcwd())
 # ref_dir = "/n/scratch/users/m/meb521/GRCh38_v44/"
 
-multiplier_per_task = 5
+multiplier_per_task = 2
 
 start = (parts_batch - 1) * multiplier_per_task
 end = parts_batch * multiplier_per_task

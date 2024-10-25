@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -c 20
-#SBATCH --mem=6G
-#SBATCH -t 0:50:00
-#SBATCH -p short
+#SBATCH --mem=10G
+#SBATCH -t 1:30:00
+#SBATCH -p priority
 #SBATCH -o compute_bam_job_%A.out
 #SBATCH --account=chen_fec176
 

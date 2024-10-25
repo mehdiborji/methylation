@@ -23,9 +23,9 @@ args = [(indir, sample, part, limit) for part in parts]
 pool = Pool(int(cores))
 
 if genomic:
-    results = pool.starmap(methyl_utils.tag_bam_with_all_barcodes, args)
+    results = pool.starmap(methyl_utils.tag_minimap_bam_with_all_barcodes, args)
 else:
-    results = pool.starmap(methyl_utils.tag_bam_with_barcodes, args)
+    results = pool.starmap(methyl_utils.tag_bismark_bam_with_whitelist_barcodes, args)
 
 pool.close()
 pool.join()

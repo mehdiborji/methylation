@@ -4,7 +4,7 @@
 #SBATCH -t 0:30:00
 #SBATCH -p short
 #SBATCH -o aggregate_quad_parts_CpG_job_%A_%a.out
-#SBATCH --array=1-26
+#SBATCH --array=1-3
 #SBATCH --account=chen_fec176
 
 echo 'indir =' $1

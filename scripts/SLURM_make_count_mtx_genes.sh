@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH -c 1
 #SBATCH --mem=4G
-#SBATCH -t 0:30:00
+#SBATCH -t 0:35:00
 #SBATCH -p short
 #SBATCH -o make_count_mtx_genes_job_%A_%a.out
-#SBATCH --array=1-10
+#SBATCH --array=4-6
 #SBATCH --account=chen_fec176
 
 echo 'indir =' $1
