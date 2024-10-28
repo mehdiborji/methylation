@@ -216,11 +216,13 @@ def extract_clean_fastq(indir, sample, part, limit):
                 quality_calc(seq3, quals3, r3_base_dict, r3_qual_dict)
 
             if len1 >= 40 and len3 >= 40:
+                
                 bc = seq2[8:24]
 
                 match, dist = edit_match(seq2[:8], "CAGACGCG", 2)
 
                 if match:
+                    
                     seq_counter(bcs_dict, bc)
 
                     R1_clean.write(f"@{r1.name}_{bc} r1\n")
@@ -778,12 +780,12 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
             chrom_pos = read.get_reference_positions()
 
         if read.is_read1:  # mean it's R2
-            meth = meth[8:-10] #[2:-10]
-            chrom_pos = chrom_pos[8:-10] #[2:-10]
+            meth = meth[2:-10] #[2:-10]
+            chrom_pos = chrom_pos[2:-10] #[2:-10]
             string_position_count(meth, R2_meth_dict)
         else:
-            meth = meth[10:-8]#[10:-2]#[:175]
-            chrom_pos = chrom_pos[10:-8]#[10:-2]#[:175]
+            meth = meth[10:-2]#[10:-2]#[:175]
+            chrom_pos = chrom_pos[10:-2]#[10:-2]#[:175]
 
             string_position_count(meth, R1_meth_dict)
 
