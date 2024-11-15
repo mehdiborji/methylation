@@ -1245,7 +1245,7 @@ def make_allc_tsv(indir, sample, batch, context):
     if context.startswith('CpG'):
         bed_context_col = 'CG'
     else:
-        bed_context_col = 'CH'
+        bed_context_col = 'CA'
     
     batch_bcs = list(data_sub.keys())
 

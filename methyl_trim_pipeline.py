@@ -32,9 +32,9 @@ for b in range(start, end):
     out_json = f"{indir}/{sample}/split/{sample}_part_{p}.json"
     out_html = f"{indir}/{sample}/split/{sample}_part_{p}.html"
     
-    #options = "--adapter_sequence=CTATCTCTTATACACATCTCCAAACC --adapter_sequence_r2=CTGTCTCTTATACACATCTGACGCTG"
+    options = "--adapter_sequence=CTATCTCTTATACACATCTCCAAACC --adapter_sequence_r2=CTGTCTCTTATACACATCTGACGCTG"
     
-    options = "--adapter_sequence=CTGTCTCTTATACACATCT --adapter_sequence_r2=CTGTCTCTTATACACATCT"
+    #options = "--adapter_sequence=CTGTCTCTTATACACATCT --adapter_sequence_r2=CTGTCTCTTATACACATCT"
     
     input_output = f"-i {fq1} -I {fq2} -o {out_fq1} -O {out_fq2} -j {out_json} -h {out_html}"
     
