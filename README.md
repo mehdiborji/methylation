@@ -28,21 +28,20 @@ The pipeline currently is harcoded with the assumption that R2 is 24nt long and 
 
 The pipeline does several steps including splitting, trimming, barcode transfer from index reads into cDNA reads, potentially quality filtering reads, and collecting raw barcodes for barcode matching.
 
-- Adapater trimming is done using fastp
-
+- Adapater trimming is done using fastp, multiple parts per task, controlled by `multiplier_per_task` variable `(default=7)`
 ```
-sbatch ~/methylation/scripts/SLURM_trim_pipeline.sh . sample
-```
-
-- Alignments are done with Bismark and array jobs, one task for each part
-```
-sbatch ~/methylation/scripts/SLURM_align_parts.sh . sample ../GRCm39_full
-sbatch ~/methylation/scripts/SLURM_align_parts.sh . sample ../GRCh38_v44/
+sbatch --array=1-n ~/methylation/scripts/SLURM_trim_pipeline.sh . sample
 ```
 
-- Alignments for genomic data is done with minimap2, multiple parts per task:
+- Alignments are done with Bismark and array jobs, one task for each part:
 ```
-sbatch ~/methylation/scripts/SLURM_align_parts_minimap.sh . sample  ../GRCh38_v44/GRCh38_v44_chrs.mmi
+sbatch --array=1-n ~/methylation/scripts/SLURM_align_parts.sh . sample ../GRCm39_full
+sbatch --array=1-n ~/methylation/scripts/SLURM_align_parts.sh . sample ../GRCh38_v44/
+```
+
+- Alignments for genomic data is done with minimap2, multiple parts per task, controlled by `multiplier_per_task` variable `(default=6)`
+```
+sbatch  --array=1-n ~/methylation/scripts/SLURM_align_parts_minimap.sh . sample  ../GRCh38_v44/GRCh38_v44_chrs.mmi
 ```
 
 - There are partially converted reads which need to be removed
@@ -118,6 +117,7 @@ After tagging all bam parts we can aggregate and mark duplicates using the follo
 sbatch ~/methylation/scripts/bam_merge.sh . sample
 ```
 Finally we can compute statistics from the entire bam. We do this in a per chromosome level and in parallel:
+
 ```
 sbatch ~/methylation/scripts/SLURM_compute_bam.sh . sample ~/methylation/data/GRCm39_v34_allcontigs.fasta.fai
 sbatch ~/methylation/scripts/SLURM_compute_bam.sh . sample ~/methylation/data/GRCh38_v44_chrs.fasta.fai

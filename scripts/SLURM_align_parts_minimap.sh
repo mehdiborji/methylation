@@ -5,7 +5,6 @@
 #SBATCH -t 3:59:00
 #SBATCH -p short
 #SBATCH -o align_parts_minimap_job_%A_%a.out
-#SBATCH --array=1-8
 #SBATCH --account=chen_fec176
 
 echo 'indir =' $1
