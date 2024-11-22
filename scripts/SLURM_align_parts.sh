@@ -3,7 +3,7 @@
 #SBATCH -c 5
 #SBATCH --mem=12G
 #SBATCH -t 3:30:00
-#SBATCH -p short
+#SBATCH -p priority
 #SBATCH -o align_parts_job_%A_%a.out
 #SBATCH --account=chen_fec176
 

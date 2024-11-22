@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH -c 10
-#SBATCH --mem=10G
+#SBATCH -c 12
+#SBATCH --mem=8G
 #SBATCH -t 0:20:00
 #SBATCH -p priority
 #SBATCH -o compute_bam_job_%A.out

@@ -1,10 +1,9 @@
 #!/bin/bash
 #SBATCH -c 1
-#SBATCH --mem=40G
-#SBATCH -t 1:50:00
+#SBATCH --mem=30G
+#SBATCH -t 0:40:00
 #SBATCH -p short
 #SBATCH -o aggregate_quad_parts_Non_CpG_job_%A_%a.out
-#SBATCH --array=1-3
 #SBATCH --account=chen_fec176
 
 echo 'indir =' $1
