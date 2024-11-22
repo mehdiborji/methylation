@@ -12,6 +12,8 @@ the pipeline assumes the reads are in a directory arranged in the following form
 /input_directory/sample_R3_001.fastq.gz # Read2 of DNA fragment
 ```
 
+### Splitting fastq and cell calling
+
 The following script wraps the `methyl_fastq_pipeline.py` into a SLURM job with three input variables required for input
 `input_directory` and `sample` and a third variable which is twice the estimate of expected cells and is used for calling:
 
@@ -23,6 +25,8 @@ or
 cd input_directory
 sbatch ~/methylation/scripts/SLURM_fastq_pipeline.sh . sample 30000
 ```
+
+### Trimming, alignment and filtering
 
 The pipeline currently is harcoded with the assumption that R2 is 24nt long and has 8nt of splint adapter CAGACGCG at the beginning and reverse compliment of 10x ATAC barcodes from 9-24. These options can be modified by modifying `extract_clean_fastq` function within `methyl_utils.py` script
 
@@ -50,6 +54,9 @@ multiple parts per task, controlled by `multiplier_per_task` variable `(default=
 sbatch --array=1-n ~/methylation/scripts/SLURM_filter_non_conv.sh . sample
 ```
 
+
+### CH and CG json file geneation
+
 - For very large datasets we split the pipeline into pieces and submit them as array jobs:
 
 This is an array job `SLURM_ARRAY_TASK_ID` is embedded as an input argument to `save_quad_batch.py`. 
@@ -71,6 +78,8 @@ sbatch --array=1-13 ~/methylation/scripts/SLURM_aggregate_quad_parts_CpG.sh . sa
 sbatch --array=1-63 ~/methylation/scripts/SLURM_aggregate_quad_parts_Non_CpG.sh . sample
 ```
 
+### allc file geneation
+
 - To build allc files for each barcode in each batch, jsons are deduped and converted to tsv:
 multiplier for CpG is 20 and Non_CpG is 2, it takes ~2 hours per batch of Non_CpG to be converted to tsv
 ```
@@ -91,18 +100,7 @@ sbatch  --array=1-n ~/methylation/scripts/SLURM_allc_process.sh . sample
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+### mtx file geneation for windows and gene
 
 - To build count matrices from batches, we first make matrix from each batch and then stack them
 
@@ -141,6 +139,8 @@ Then stacking method also needs some modifications
 ```
 sbatch ~/methylation/scripts/SLURM_stack_mtx_genes.sh . sample CpG_context ~/methylation/data/gencode.vM35.csv.gz
 ```
+
+### build final bam
 
 - To build final bam with duplications marked and barcodes add as tag `BC`
 We first add barcode tag into each part and filter out all reads and did not match to whitelist:
