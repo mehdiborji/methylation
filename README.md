@@ -44,9 +44,10 @@ sbatch --array=1-n ~/methylation/scripts/SLURM_align_parts.sh . sample ../GRCh38
 sbatch  --array=1-n ~/methylation/scripts/SLURM_align_parts_minimap.sh . sample  ../GRCh38_v44/GRCh38_v44_chrs.mmi
 ```
 
-- There are partially converted reads which need to be removed
+- There are partially converted reads which need to be removed, takes around 20-30min for a %80 aligned batch of 10m 150-150 reads
+multiple parts per task, controlled by `multiplier_per_task` variable `(default=2)`
 ```
-sbatch ~/methylation/scripts/SLURM_filter_non_conv.sh . sample
+sbatch --array=1-n ~/methylation/scripts/SLURM_filter_non_conv.sh . sample
 ```
 
 - For very large datasets we split the pipeline into pieces and submit them as array jobs:
@@ -57,14 +58,17 @@ Each  which subsequently splits the parts into batches of 12 and processess them
 Each bam of roughly 8m paired-end reads with fragment average of 100nt will need 18GB RAM to produce jsons
 
 ```
-sbatch ~/methylation/scripts/SLURM_save_quad_batch.sh . sample
+sbatch  --array=1-n ~/methylation/scripts/SLURM_save_quad_batch.sh . sample
 ```
 
 Aggregation of batches into single files is done separately for CpG an Non_CpG contexts:
+20 batches per task for CpG takes less than 10 minute, could run only 1 job too
+2 batches per task for Non_CpG takes (~5min per 5GB json batch)
+need 24x memory of CpG, 20-40GB each batch memory is 4x the final json file size
 
 ```
-sbatch ~/methylation/scripts/SLURM_aggregate_quad_parts_CpG.sh . sample
-sbatch ~/methylation/scripts/SLURM_aggregate_quad_parts_Non_CpG.sh . sample
+sbatch --array=1-13 ~/methylation/scripts/SLURM_aggregate_quad_parts_CpG.sh . sample
+sbatch --array=1-63 ~/methylation/scripts/SLURM_aggregate_quad_parts_Non_CpG.sh . sample
 ```
 
 - To build count matrices from batches, we first make matrix from each batch and then stack them
