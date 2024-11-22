@@ -13,7 +13,7 @@ sample = args.sample
 limit = args.limit
 parts_batch = args.parts_batch
 
-multiplier_per_task = 3
+multiplier_per_task = 2
 
 start = (parts_batch - 1) * multiplier_per_task
 end = parts_batch * multiplier_per_task
