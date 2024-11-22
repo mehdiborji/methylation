@@ -1,10 +1,9 @@
 #!/bin/bash
 #SBATCH -c 1
-#SBATCH --mem=4G
-#SBATCH -t 1:30:00
+#SBATCH --mem=2G
+#SBATCH -t 0:30:00
 #SBATCH -p short
 #SBATCH -o make_allc_CpG_job_%A_%a.out
-#SBATCH --array=1-3
 #SBATCH --account=chen_fec176
 
 echo 'indir =' $1

@@ -1,11 +1,10 @@
 #!/bin/bash
 #SBATCH -c 1
-#SBATCH --mem=40G
-#SBATCH -t 3:30:00
+#SBATCH --mem=30G
+#SBATCH -t 2:30:00
 #SBATCH -p short
 #SBATCH -o make_allc_Non_CpG_job_%A_%a.out
-#SBATCH --array=1-27
-#SBATCH --account=chen_fec176
+#SBATCH --account=wu_cjw1
 
 echo 'indir =' $1
 echo 'sample =' $2

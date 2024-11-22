@@ -25,7 +25,7 @@ def allc_process(indir, sample, bc):
     submit = f"cat {cg_file} {ch_file} > {allc_file}"
     subprocess.run(submit, shell=True)
     
-    allc_sorted_file  = f'{allcools_dir}/{bc}_all_ch_sorted.tsv'
+    allc_sorted_file  = f'{allcools_dir}/{bc}_allc_sorted.tsv'
     
     submit = f"sort -k1,1 -k2,2n {ch_file} > {allc_sorted_file}"
     subprocess.run(submit, shell=True)
@@ -58,6 +58,6 @@ all_bcs = sorted(whitelist.tenx_whitelist)
 args = [(indir, sample, bc) for bc in all_bcs]
 
 pool = Pool(int(cores))
-results = pool.starmap(fix_allc, args)
+results = pool.starmap(allc_process, args)
 pool.close()
 pool.join()
