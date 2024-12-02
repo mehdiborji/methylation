@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -c 12
 #SBATCH --mem=8G
-#SBATCH -t 0:20:00
+#SBATCH -t 0:30:00
 #SBATCH -p priority
 #SBATCH -o compute_bam_job_%A.out
 #SBATCH --account=chen_fec176

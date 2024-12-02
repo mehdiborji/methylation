@@ -3,8 +3,7 @@
 This is a computational workflow for bioinformatics analysis of single-cell DNA and DNA methylation sequencing data, 
 based on a custom molecular biology modification of 10x Genomics Chromium Single Cell Multiome ATAC + Gene Expression assay.
 
-- The first step is to do some preprocessing on the input FASTQ files.
-the pipeline assumes the reads are in a directory arranged in the following format:
+The pipeline assumes the reads are in a directory arranged in the following format:
 
 ```
 /input_directory/sample_R1_001.fastq.gz # Read1 of DNA fragment
@@ -14,7 +13,8 @@ the pipeline assumes the reads are in a directory arranged in the following form
 
 ### Splitting fastq, barcode aggregation, correction and cell calling
 
-- The pipeline currently is harcoded with the assumption that R2 is 24nt long and has 8nt of splint adapter CAGACGCG at the beginning and reverse compliment of 10x ATAC barcodes from 9-24. These options can be modified by modifying `extract_clean_fastq` function within `methyl_utils.py` script
+- The first step is to do some preprocessing on the input FASTQ files.
+The pipeline currently is harcoded with the assumption that R2 is 24nt long and has 8nt of splint adapter CAGACGCG at the beginning and reverse compliment of 10x ATAC barcodes from 9-24. These options can be modified by modifying `extract_clean_fastq` function within `methyl_utils.py` script
 
 The pipeline does several steps including splitting, trimming, barcode transfer from index reads into cDNA reads, potentially quality filtering reads, and collecting raw barcodes for barcode matching.
 

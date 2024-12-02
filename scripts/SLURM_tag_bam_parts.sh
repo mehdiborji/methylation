@@ -9,7 +9,8 @@
 echo 'indir =' $1
 echo 'sample =' $2
 
-python -u ~/methylation/tag_bam_parts.py -c 16 -i $1 -s $2 --genomic
+python -u ~/methylation/tag_bam_parts.py -c 16 -i $1 -s $2
+#--genomic
 #--limit
 #
 #

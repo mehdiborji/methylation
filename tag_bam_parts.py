@@ -19,9 +19,14 @@ limit = args.limit
 
 
 parts = methyl_utils.find_sub_fastq_parts(indir, sample)
+
+if len(parts)==0:
+    parts = [str(i).zfill(3) for i in range(260)]
+
 args = [(indir, sample, part, limit) for part in parts]
 pool = Pool(int(cores))
 
+print(args)
 if genomic:
     results = pool.starmap(methyl_utils.tag_minimap_bam_with_all_barcodes, args)
 else:
