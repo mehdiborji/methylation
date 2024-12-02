@@ -24,7 +24,6 @@ N_interval_log = 1e6  # interval for logging
 
 print(N_read_extract)
 
-
 def seq_counter(seq_dict, seq_instance):
     if seq_instance in seq_dict:
         seq_dict[seq_instance] += 1
@@ -303,9 +302,9 @@ def tag_bismark_bam_with_whitelist_barcodes(indir, sample, part, limit):
     sam_tag = f"{indir}/{sample}/split/{sample}.part_{part}_tagged.bam"
     sam = f"{indir}/{sample}/split/output_{part}/{sample}_R1.part_{part}_clean_trim_bismark_bt2_pe.bam"
 
-    if os.path.isfile(sam_tag):
-        print(sam_tag, " exists, skip")
-        return
+    #if os.path.isfile(sam_tag):
+    #    print(sam_tag, " exists, skip")
+    #    return
 
     samfile = pysam.AlignmentFile(sam, "rb")
     tagged_bam = pysam.AlignmentFile(sam_tag, "wb", template=samfile)
@@ -453,6 +452,7 @@ def aggregate_bc_dicts(indir, sample):
 
 
 def write_bc_whitelist(indir, sample, bc_file):
+    
     fasta_file = f"{indir}/{sample}/{sample}_bc_whitelist.fasta"
 
     if os.path.isfile(fasta_file):
@@ -468,8 +468,8 @@ def write_bc_whitelist(indir, sample, bc_file):
     with open(fasta_file, "w") as f:
         for bc in bcs.rev_bc:
             f.write(f">{bc}\n")
-            f.write(f"{bc}\n")
-
+            f.write(f"{bc}\n")   
+            
 
 def write_bc_raw_reads(indir, sample, threshold):
     fasta_file = f"{indir}/{sample}/{sample}_bc_raw_reads.fasta"
@@ -481,6 +481,7 @@ def write_bc_raw_reads(indir, sample, threshold):
     bc_file = f"{indir}/{sample}/{sample}_agg_cnt_raw_bcs.csv"
     bcs = pd.read_csv(bc_file)
     bcs.columns = ["bc", "read_cnt"]
+    
     bcs = bcs[bcs.read_cnt > threshold].copy()
     bcs = bcs.sort_values(by="bc", ascending=False)
     with open(fasta_file, "w") as f:
@@ -779,13 +780,20 @@ def save_quad_batch_from_bam(indir, sample, part, limit):
             meth = read.get_tag("XM")
             chrom_pos = read.get_reference_positions()
 
+        r1_left_clip = 15
+        r1_right_clip = 2
+        r2_left_clip = 2
+        r2_right_clip = 15
+        r1_trim_after = 150
+        r2_trim_after = 1000
+        
         if read.is_read1:  # mean it's R2
-            meth = meth[2:-10] #[2:-10]
-            chrom_pos = chrom_pos[2:-10] #[2:-10]
+            meth = meth[r2_left_clip:-r2_right_clip][:r2_trim_after]
+            chrom_pos = chrom_pos[r2_left_clip:-r2_right_clip][:r2_trim_after]
             string_position_count(meth, R2_meth_dict)
         else:
-            meth = meth[10:-2]#[10:-2]#[:175]
-            chrom_pos = chrom_pos[10:-2]#[10:-2]#[:175]
+            meth = meth[r1_left_clip:-r1_right_clip][:r1_trim_after]
+            chrom_pos = chrom_pos[r1_left_clip:-r1_right_clip][:r1_trim_after]
 
             string_position_count(meth, R1_meth_dict)
 
@@ -1254,6 +1262,12 @@ def make_allc_tsv(indir, sample, batch, context):
 
         print(bc, total_bases)
         
+        allc_tsv_file = f'{allcools_dir}/{bc}_{context}.tsv'
+        
+        if os.path.isfile(allc_tsv_file):
+            print(allc_tsv_file, " exists, skip", flush=True)
+            continue
+        
         dedup = set(data_sub[bc])
         triplets = [d.split("_") for d in dedup]
         triplets = pd.DataFrame(triplets)
@@ -1275,10 +1289,11 @@ def make_allc_tsv(indir, sample, batch, context):
         mrg = mrg[[0, 1, 'strand', 'context', 'Z_cnt', 'cov', 'sig_meth']]
         mrg['Z_cnt'] = mrg['Z_cnt'].astype(int)
         mrg['cov'] = mrg['cov'].astype(int)
-        mrg.to_csv(f'{allcools_dir}/{bc}_{context}.tsv',index=None,header=None,sep='\t')
+        mrg.to_csv(allc_tsv_file,index=None,header=None,sep='\t')
         
 
 def load_mtx(file):
+    
     return scipy.io.mmread(file)
 
 
