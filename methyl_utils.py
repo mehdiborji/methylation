@@ -468,7 +468,119 @@ def write_bc_whitelist(indir, sample, bc_file):
     with open(fasta_file, "w") as f:
         for bc in bcs.rev_bc:
             f.write(f">{bc}\n")
-            f.write(f"{bc}\n")   
+            f.write(f"{bc}\n")
+            
+def calling_whitelist_DNA_RNA(indir, sample, dna_10x_wl_file, rna_10x_wl_file):
+    
+    from matplotlib.backends.backend_pdf import PdfPages
+    
+    #if os.path.isfile(fasta_file):
+    #    print(fasta_file, " exists, skip")
+    #    return
+    
+    qc_pdf_file = f"{indir}/{sample}/{sample}_QC.pdf"
+
+    #if os.path.isfile(qc_pdf_file):
+    #    print(qc_pdf_file, " exists, skip")
+    #else:
+    qc_pdfs = PdfPages(qc_pdf_file)
+    
+    atac = pd.read_table(dna_10x_wl_file, names=["atac"])
+    rna = pd.read_table(rna_10x_wl_file, names=["rna"])
+    all_bcs = atac.join(rna)
+    all_bcs['rev_comp_atac'] = all_bcs.atac.apply(lambda x: mappy.revcomp(x))
+
+    import csv
+    N_interval_log = 2e5
+    
+    raw_bcs_DNA_csv = f"{indir}/{sample}/{sample}_agg_cnt_raw_bcs.csv"
+    rev_comp_atac_dict = dict.fromkeys(all_bcs['rev_comp_atac'], None)
+
+    with open(raw_bcs_DNA_csv, "r") as f:
+        reader = csv.reader(f, delimiter=",")
+        for i, line in enumerate(reader):
+            
+            if line[0] in rev_comp_atac_dict:
+                rev_comp_atac_dict[line[0]] = int(line[1])
+            if i % N_interval_log == 0:
+                print(i, line)
+            #if i>10000000:
+            #    break
+
+    raw_bcs_RNA_csv = f"{indir}/{sample}/{sample}_agg_cnt_raw_bcs_RNA.csv" 
+    rna_dict = dict.fromkeys(all_bcs['rna'], None)
+
+    with open(raw_bcs_RNA_csv, "r") as f:
+        reader = csv.reader(f, delimiter=",")
+        for i, line in enumerate(reader):
+            
+            if line[0] in rna_dict:
+                rna_dict[line[0]] = int(line[1])
+            if i % N_interval_log == 0:
+                print(i, line)
+            #if i>10000000:
+            #    break
+        
+    all_bcs['RNA_cnt'] = all_bcs.rna.apply(lambda x: rna_dict[x])
+    all_bcs['DNA_cnt'] = all_bcs.rev_comp_atac.apply(lambda x: rev_comp_atac_dict[x])
+    all_bcs = all_bcs[ (all_bcs.RNA_cnt>0) & (all_bcs.DNA_cnt>0) ].copy()
+    all_bcs['log10_RNA_cnt'] = np.log10(all_bcs['RNA_cnt'])
+    all_bcs['log10_DNA_cnt'] = np.log10(all_bcs['DNA_cnt'])
+
+    from scipy.ndimage import gaussian_filter1d
+    from scipy.signal import find_peaks
+    
+    
+    import matplotlib.pyplot as plt
+
+    bins = 100
+
+    rna_sorted = all_bcs.log10_RNA_cnt.sort_values(ascending=False)
+    sub = rna_sorted.iloc[100:].copy()
+
+    x = np.histogram(sub, bins)  
+
+    smooth = gaussian_filter1d(x[0], 3)
+    # find the local minimum
+    peak_idx, _ = find_peaks(-smooth)
+    # take the mid point of point before and after
+    print(peak_idx, x[1][:-1][peak_idx])
+    mean_hist = (x[1][1:][peak_idx] + x[1][:-1][peak_idx]) / 2  
+
+    # take the last value in list of local minima (could be more than one)
+    mean_hist = mean_hist[-1]  
+
+    plt.figure(figsize=(4, 3))
+    plt.plot(x[1][:-1], x[0], label="Raw Histogram")
+    plt.plot(x[1][:-1], smooth, label="Gaussian Smoothed")
+    plt.xlabel("Log10 Read Counts")
+    plt.ylabel("Bin Height")
+    plt.title(f"{sample}\n RNA raw reads")
+    plt.plot(
+        [mean_hist, mean_hist],
+        [0, np.max(x[0])],
+        linewidth=2,
+        label="Whitelist Threshold",
+    )
+    plt.legend(loc="best")
+    
+    
+    dna_sorted = all_bcs[all_bcs.log10_RNA_cnt>=mean_hist].log10_DNA_cnt.sort_values(ascending=False)
+
+    #sub = dna_sorted.iloc[100:30000].copy()
+    
+    x = np.histogram(dna_sorted, bins)  
+
+    smooth = gaussian_filter1d(x[0], 3)
+    peak_idx, _ = find_peaks(-smooth)
+    print(peak_idx, x[1][:-1][peak_idx])
+    mean_hist = (x[1][1:][peak_idx] + x[1][:-1][peak_idx]) / 2 
+    mean_hist = mean_hist[-1]
+
+    #with open(fasta_file, "w") as f:
+    #    for bc in bcs.rev_bc:
+    #        f.write(f">{bc}\n")
+    #        f.write(f"{bc}\n")
             
 
 def write_bc_raw_reads(indir, sample, threshold):
