@@ -1,6 +1,7 @@
 import argparse
 from multiprocessing import Pool
 import subprocess
+import pandas as pd
 import json
 
 parser = argparse.ArgumentParser()
@@ -35,6 +36,21 @@ def allc_process(indir, sample, bc):
 
     submit = f"tabix -s1 -b2 -e2 -f {allc_sorted_file}.gz"
     subprocess.run(submit, shell=True)
+    
+def allc_stats_process(indir, sample, bc):
+    
+    allcools_dir = f"{indir}/{sample}/allcools"
+    allc_sorted_file = f"{allcools_dir}/{bc}_allc_sorted.tsv.gz"
+    cc = pd.read_table(allc_sorted_file,header=None)
+    
+    all_cnt = pd.crosstab(cc[3],cc[4])
+    all_cnt['total_c'] = all_cnt.sum(axis=1)
+    all_cnt['ratio'] = all_cnt[1]/all_cnt['total_c']*100
+    c_calls = [bc]
+    c_calls.extend(all_cnt.melt().value.to_list())
+    
+    return c_calls
+    
 
 multiplier_per_task = 4
     
