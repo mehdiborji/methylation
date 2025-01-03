@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -c 20
 #SBATCH --mem=20G
-#SBATCH -t 6:30:00
+#SBATCH -t 8:30:00
 #SBATCH -p short
 #SBATCH -o methyl_fastq_job_%A.out
 #SBATCH --account=chen_fec176
