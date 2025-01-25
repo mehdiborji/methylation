@@ -470,8 +470,95 @@ def write_bc_whitelist(indir, sample, bc_file):
         for bc in bcs.rev_bc:
             f.write(f">{bc}\n")
             f.write(f"{bc}\n")
-            
 
+            
+def find_local_min(df):
+    from scipy.ndimage import gaussian_filter1d
+    from scipy.signal import find_peaks
+
+    bins = 100
+
+    cnt_sorted = df.sort_values(ascending=False)
+    sub = cnt_sorted.iloc[100:].copy()
+
+    x = np.histogram(sub, bins)  
+
+    smooth = gaussian_filter1d(x[0], 3)
+    # find the local minimum
+    peak_idx, _ = find_peaks(-smooth)
+    # take the mid point of point before and after
+    print(peak_idx, x[1][:-1][peak_idx])
+    mean_hist = (x[1][1:][peak_idx] + x[1][:-1][peak_idx]) / 2  
+
+    # take the last value in list of local minima (could be more than one)
+    mean_hist = mean_hist[-1]
+    
+    return mean_hist
+
+
+def DNA_RNA_exact_shared(indir, sample, dna_10x_wl_file, rna_10x_wl_file, max_expected_barcodes):
+    
+    atac = pd.read_table(dna_10x_wl_file, names=["atac"])
+    rna = pd.read_table(rna_10x_wl_file, names=["rna"])
+    all_bcs = atac.join(rna)
+    all_bcs['rev_comp_atac'] = all_bcs.atac.apply(lambda x: mappy.revcomp(x))
+
+    
+    N_interval_log = 2e6
+    
+    raw_bcs_DNA_csv = f"{indir}/{sample}/{sample}_agg_cnt_raw_bcs.csv"
+    rev_comp_atac_dict = dict.fromkeys(all_bcs['rev_comp_atac'], None)
+
+    with open(raw_bcs_DNA_csv, "r") as f:
+        reader = csv.reader(f, delimiter=",")
+        for i, line in enumerate(reader):
+            
+            if line[0] in rev_comp_atac_dict:
+                rev_comp_atac_dict[line[0]] = int(line[1])
+            if i % N_interval_log == 0:
+                print(i, line)
+            #if i>10000000:
+            #    break
+
+    raw_bcs_RNA_csv = f"{indir}/{sample}/{sample}_agg_cnt_raw_bcs_RNA.csv" 
+    rna_dict = dict.fromkeys(all_bcs['rna'], None)
+
+    with open(raw_bcs_RNA_csv, "r") as f:
+        reader = csv.reader(f, delimiter=",")
+        for i, line in enumerate(reader):
+            
+            if line[0] in rna_dict:
+                rna_dict[line[0]] = int(line[1])
+            if i % N_interval_log == 0:
+                print(i, line)
+            #if i>10000000:
+            #    break
+        
+    all_bcs['RNA_cnt'] = all_bcs.rna.apply(lambda x: rna_dict[x])
+    all_bcs['DNA_cnt'] = all_bcs.rev_comp_atac.apply(lambda x: rev_comp_atac_dict[x])
+
+    filt_bcs = all_bcs[ (all_bcs.RNA_cnt>10) & (all_bcs.DNA_cnt>10) ].copy()
+
+    top_RNA = filt_bcs['RNA_cnt'].nlargest(max_expected_barcodes)
+    top_DNA = filt_bcs['DNA_cnt'].nlargest(max_expected_barcodes)
+
+    #filt_bcs = filt_bcs[filt_bcs['RNA_cnt'].isin(top_RNA) & filt_bcs['DNA_cnt'].isin(top_DNA)].copy()
+    
+    filt_bcs = filt_bcs[ (filt_bcs.RNA_cnt>=top_RNA.min()) & (filt_bcs.DNA_cnt>=top_DNA.min()) ].copy()
+
+    filt_bcs['log10_RNA_cnt'] = np.log10(filt_bcs['RNA_cnt'])
+    filt_bcs['log10_DNA_cnt'] = np.log10(filt_bcs['DNA_cnt'])
+
+    filt_bcs.to_csv(f"{indir}/{sample}/{sample}_RNA_DNA_share_bcs.csv")
+    
+    DNA_threshold = find_local_min(filt_bcs.log10_DNA_cnt)
+    RNA_threshold = find_local_min(filt_bcs.log10_RNA_cnt)
+
+    wl_RNA_DNA = filt_bcs[ (filt_bcs.log10_DNA_cnt>DNA_threshold) & (filt_bcs.log10_RNA_cnt>RNA_threshold) ].copy()
+
+    wl_RNA_DNA.to_csv(f"{indir}/{sample}/{sample}_RNA_DNA_whitelist.csv")
+    
+    
 def write_bc_raw_reads(indir, sample, threshold):
     fasta_file = f"{indir}/{sample}/{sample}_bc_raw_reads.fasta"
 
