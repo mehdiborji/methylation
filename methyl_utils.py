@@ -559,6 +559,78 @@ def DNA_RNA_exact_shared(indir, sample, dna_10x_wl_file, rna_10x_wl_file, max_ex
     wl_RNA_DNA.to_csv(f"{indir}/{sample}/{sample}_RNA_DNA_whitelist.csv")
     
     
+def generate_c_to_t_variants(seq):
+    variants = [[None, 0, seq, seq]]
+
+    for i, nucleotide in enumerate(seq):
+        if nucleotide == 'C':
+            variant = seq[:i] + 'T' + seq[i+1:]
+            variants.append([i, 1, seq, variant])
+            
+    for i, nucleotide in enumerate(seq):
+        if nucleotide == 'C':
+            for j in range(i + 1, len(seq)):
+                if seq[j] == 'C':
+                    variant = seq[:i] + 'T' + seq[i+1:j] + 'T' + seq[j+1:]
+                    variants.append([i, j, 2, seq, variant])
+                    
+    for i, nucleotide in enumerate(seq):
+        if nucleotide == 'C':
+            for j in range(i + 1, len(seq)):
+                if seq[j] == 'C':
+                    for k in range(j + 1, len(seq)):
+                        if seq[k] == 'C':
+                            variant = seq[:i] + 'T' + seq[i+1:j] + 'T' + seq[j+1:k] + 'T' + seq[k+1:]
+                            variants.append([i, j, k, 3, seq, variant])
+
+    return variants
+
+
+def c_to_t_correction(indir, sample):
+    
+    white = pd.read_csv(f"{indir}/{sample}/{sample}_RNA_DNA_whitelist.csv", index_col=0)
+
+    all_hammings = []
+    for kk, seq in enumerate(white.rev_comp_atac):
+        variants = generate_c_to_t_variants(seq)
+        all_hammings.extend([c[-3:] for c in variants])
+    
+    all_df = pd.DataFrame(all_hammings)
+    N_interval_log = 2e6
+
+    raw_bcs_DNA_csv = f"{indir}/{sample}/{sample}_agg_cnt_raw_bcs.csv"
+    all_ham_dict = dict.fromkeys(all_df[2], None)
+
+    with open(raw_bcs_DNA_csv, "r") as f:
+        reader = csv.reader(f, delimiter=",")
+
+        non_matched = {}
+        total_reads = 0
+        for i, line in enumerate(reader):
+
+            raw_bc = line[0]
+            read_cnt = int(line[1])
+            total_reads += read_cnt
+            if read_cnt>=10:
+                if raw_bc in all_ham_dict:
+                    all_ham_dict[raw_bc] = read_cnt
+                elif read_cnt>100:
+                    non_matched[raw_bc] = read_cnt
+            if i % N_interval_log == 0:
+                print(i, line)
+            if >1000000:
+                break
+    
+    non_matched_csv = f"{indir}/{sample}/{sample}_raw_bcs_non_matched.csv"
+    pd.Series(non_matched).sort_values(ascending=False).to_csv(non_matched_csv)
+    
+    all_df[3] = all_df[2].apply(lambda x: all_ham_dict[x])
+    all_df_sub = all_df[all_df[3]>0]
+    ham_reps = all_df_sub[2].value_counts()
+    ham_reps = ham_reps[ham_reps>1].index
+
+    all_df_reps = all_df_sub[all_df_sub[2].isin(ham_reps)]
+    
 def write_bc_raw_reads(indir, sample, threshold):
     fasta_file = f"{indir}/{sample}/{sample}_bc_raw_reads.fasta"
 
